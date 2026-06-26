@@ -1,0 +1,6 @@
+{
+  "name": "Inovarium Inmuebles",
+  "description": "MVP de la plataforma SaaS para la gestión de mantenimiento preventivo de condominios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

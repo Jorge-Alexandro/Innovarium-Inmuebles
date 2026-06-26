@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <script>
+      // Interceptador temprano de errores benignos y "Script error." en entornos de iframe / cross-origin
+      (function() {
+        var errorHandler = function(e) {
+          var msg = e && (e.message || (e.reason && e.reason.message) || "");
+          // Silenciar 'Script error.' y fallos benignos comunes de observadores en iframes
+          if (
+            !msg || 
+            msg.indexOf("Script error") !== -1 || 
+            msg.indexOf("ResizeObserver") !== -1 || 
+            msg.indexOf("unhandledrejection") !== -1 ||
+            e.error === null
+          ) {
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            if (e.preventDefault) e.preventDefault();
+            return true;
+          }
+        };
+        window.addEventListener("error", errorHandler, true);
+        window.addEventListener("unhandledrejection", errorHandler, true);
+        window.onerror = function(message, source, lineno, colno, error) {
+          var msg = message || "";
+          if (!msg || msg.indexOf("Script error") !== -1 || msg.indexOf("ResizeObserver") !== -1) {
+            return true; // Evita la propagación del error al navegador/iframe superior
+          }
+        };
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inovarium Inmuebles · Mantenimiento Preventivo</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;550;700;900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-stone-50 selection:bg-green-100 selection:text-green-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
