@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { jsPDF } from "jspdf";
 import { Presupuesto, TareaPreventiva, Area } from "../types";
 import { BRAND } from "../config/brand";
 import { 
@@ -78,6 +79,161 @@ export default function Finanzas({ presupuestos, areas, tareas, onTriggerToast }
     });
 
     onTriggerToast("📄 Borrador de factura generado. Listo para auditoría de asamblea.");
+  };
+
+  const handleExportarPDF = () => {
+    if (!facturaGenerada) return;
+
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Estilos y Paleta de Colores Elegantes (Azul Marino #0A1B3D, Ocre #C5A059)
+      
+      // Rectángulo superior decorativo (Header Accent)
+      doc.setFillColor(10, 27, 61); // #0A1B3D
+      doc.rect(0, 0, 210, 32, "F");
+
+      // Texto de Encabezado en blanco
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text("INOVARIUM TECH", 15, 18);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text("Sistemas Inteligentes de Mantenimiento Condominal", 15, 25);
+
+      // Título de la factura y Folio
+      doc.setTextColor(197, 160, 89); // #C5A059 (Ocre)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("BORRADOR DE FACTURA", 130, 16);
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text(`Folio: ${facturaGenerada.folio}`, 130, 23);
+
+      // Datos Generales
+      doc.setTextColor(51, 65, 85); // Slate
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.text("EMISOR:", 15, 46);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(facturaGenerada.proveedor, 15, 52);
+      doc.text("RFC: INO210809-TM3", 15, 57);
+      doc.text("Soporte Técnico y Mantenimiento Predictivo", 15, 62);
+
+      // Receptor
+      doc.setFont("helvetica", "bold");
+      doc.text("RECEPTOR (CLIENTE):", 115, 46);
+
+      doc.setFont("helvetica", "normal");
+      doc.text(facturaGenerada.condominio, 115, 52);
+      doc.text("Dirección: Huixquilucan, Estado de México", 115, 57);
+      doc.text("Uso CFDI: G03 - Gastos en general", 115, 62);
+
+      // Fecha de Emisión
+      doc.setFont("helvetica", "bold");
+      doc.text("FECHA DE EMISIÓN:", 15, 76);
+      doc.setFont("helvetica", "normal");
+      doc.text(facturaGenerada.fecha, 55, 76);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("ESTADO DEL DOCUMENTO:", 115, 76);
+      doc.setTextColor(197, 160, 89); // Ocre
+      doc.text("Borrador sin Procesar Pago", 165, 76);
+
+      // Línea divisoria
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.setLineWidth(0.5);
+      doc.line(15, 83, 195, 83);
+
+      // Tabla de conceptos
+      // Encabezado de Tabla
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(15, 91, 180, 8, "F");
+      
+      doc.setTextColor(10, 27, 61); // #0A1B3D
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text("Concepto / Servicio Técnico Preventivo", 18, 96);
+      doc.text("Área", 110, 96);
+      doc.text("Total", 175, 96, { align: "right" });
+
+      // Contenido de la Tabla
+      doc.setTextColor(51, 65, 85);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      
+      // Dividir el título de la tarea en múltiples líneas si es largo
+      const splitTarea = doc.splitTextToSize(facturaGenerada.tarea, 85);
+      doc.text(splitTarea, 18, 107);
+      
+      doc.text(facturaGenerada.area, 110, 107);
+      
+      const totalFormateado = formatCurrency(facturaGenerada.total);
+      doc.text(totalFormateado, 175, 107, { align: "right" });
+
+      // Calcular altura de la fila
+      const linesCount = splitTarea.length;
+      const rowHeight = 10 + (linesCount * 4);
+
+      // Línea inferior de la tabla
+      doc.line(15, 103 + rowHeight, 195, 103 + rowHeight);
+
+      // Sección de Totales
+      const totalY = 113 + rowHeight;
+      doc.setFont("helvetica", "normal");
+      doc.text("Subtotal:", 135, totalY);
+      doc.text(formatCurrency(facturaGenerada.subtotal), 175, totalY, { align: "right" });
+
+      doc.text("I.V.A. (16%):", 135, totalY + 6);
+      doc.text(formatCurrency(facturaGenerada.iva), 175, totalY + 6, { align: "right" });
+
+      doc.setLineWidth(0.5);
+      doc.line(135, totalY + 9, 195, totalY + 9);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(10, 27, 61);
+      doc.text("Total:", 135, totalY + 14);
+      doc.text(formatCurrency(facturaGenerada.total), 175, totalY + 14, { align: "right" });
+
+      // Notas al pie
+      const footerY = Math.max(totalY + 30, 160);
+      doc.setFillColor(250, 246, 237); // Crema claro
+      doc.rect(15, footerY, 180, 22, "F");
+
+      doc.setTextColor(148, 114, 53); // Café/Ocre oscuro
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.text("NOTA IMPORTANTE:", 18, footerY + 6);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 80, 80);
+      doc.text("Este documento es un BORRADOR DE COTIZACIÓN Y FACTURACIÓN con fines presupuestarios.", 18, footerY + 11);
+      doc.text("No constituye un comprobante fiscal digital (CFDI) válido ante el SAT hasta ser aprobado por la asamblea.", 18, footerY + 16);
+
+      // Sello / Firma
+      doc.setTextColor(148, 148, 148);
+      doc.setFontSize(7.5);
+      doc.text("Generado automáticamente por la Plataforma de Trazabilidad Innovarum Tech", 15, footerY + 35);
+      doc.text("Página 1 de 1", 175, footerY + 35);
+
+      // Guardar PDF
+      doc.save(`Borrador_Factura_${facturaGenerada.folio}.pdf`);
+      onTriggerToast(`📥 Borrador de factura ${facturaGenerada.folio} exportado exitosamente a PDF.`);
+
+    } catch (error) {
+      console.error("Error al exportar PDF:", error);
+      onTriggerToast("❌ Error al exportar la factura a PDF.");
+    }
   };
 
   return (
@@ -290,10 +446,11 @@ export default function Finanzas({ presupuestos, areas, tareas, onTriggerToast }
 
                 <button
                   type="button"
-                  onClick={() => onTriggerToast("📥 Descargando respaldo en XML y PDF...")}
-                  className="w-full mt-2 font-sans font-bold bg-neutral-800 hover:bg-neutral-950 text-white p-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5"
+                  id="btn-descargar-factura-pdf"
+                  onClick={handleExportarPDF}
+                  className="w-full mt-2 font-sans font-bold bg-neutral-800 hover:bg-neutral-950 text-white p-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Download size={12} /> Descargar Borrador (PDF)
+                  <Download size={12} /> Exportar Factura en Borrador (PDF)
                 </button>
               </div>
             )}
