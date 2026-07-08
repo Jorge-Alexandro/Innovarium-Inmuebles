@@ -11,13 +11,29 @@ import {
   TrendingDown,
   Wrench,
   TrendingUp,
-  Activity
+  Activity,
+  BarChart2
 } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  ReferenceLine,
+  BarChart,
+  Bar,
+  Cell,
+  Legend,
+  ComposedChart
+} from "recharts";
 
 interface OeeCondominalProps {
   areas: Area[];
   tareas: TareaPreventiva[];
+  currentScenario?: 'A' | 'B';
   onAddTrazabilidad: (nuevo: EventoTrazabilidad) => void;
   onTriggerToast: (msg: string) => void;
 }
@@ -25,6 +41,7 @@ interface OeeCondominalProps {
 export default function OeeCondominal({ 
   areas, 
   tareas, 
+  currentScenario = 'A',
   onAddTrazabilidad, 
   onTriggerToast 
 }: OeeCondominalProps) {
@@ -265,6 +282,57 @@ export default function OeeCondominal({
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* PARETO 80/20 CHART (Escenario B) */}
+          {currentScenario === 'B' && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-fade-in">
+              <div>
+                <h3 className="font-extrabold text-[#2B2B2B] text-sm flex items-center gap-1.5">
+                  <BarChart2 size={16} className="text-amber-500" /> Gráfico de Pareto de Fallas (Principio de Enfoque 80/20)
+                </h3>
+                <p className="text-xs text-slate-400">Las fallas mecánicas de elevadores y cisternas de agua representan el 60% de la indisponibilidad total.</p>
+              </div>
+
+              <div className="h-60 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={[
+                      { causa: "Elevadores", incidentes: 24, acumulado: 34 },
+                      { causa: "Cisterna / Agua", incidentes: 18, acumulado: 60 },
+                      { causa: "Subestación", incidentes: 11, acumulado: 76 },
+                      { causa: "Puertas/Acceso", incidentes: 6, acumulado: 85 },
+                      { causa: "Chiller / Clima", incidentes: 5, acumulado: 92 },
+                      { causa: "Pasillos Luz", incidentes: 3, acumulado: 96 },
+                      { causa: "Otros", incidentes: 3, acumulado: 100 }
+                    ]}
+                    margin={{ top: 10, right: -5, left: -25, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                    <XAxis dataKey="causa" stroke="#94A3B8" fontSize={9} tickLine={false} />
+                    <YAxis yAxisId="left" stroke="#94A3B8" fontSize={9} tickLine={false} />
+                    <YAxis yAxisId="right" orientation="right" stroke="#F59E0B" fontSize={9} tickLine={false} domain={[0, 100]} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-[#2B2B2B] text-white p-2.5 rounded-xl text-xs font-mono">
+                              <p className="font-bold">{data.causa}</p>
+                              <p className="text-[#84BD4B] font-bold">Frecuencia: {data.incidentes} fallas</p>
+                              <p className="text-amber-400 font-bold">Acumulado: {data.acumulado}%</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar yAxisId="left" dataKey="incidentes" fill="#0A1B3D" radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="acumulado" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* SIMULADOR DE INCIDENTES (PURA INTERACCIÓN UI) */}
           <div className="bg-[#2B2B2B] text-white p-5 rounded-2xl border border-transparent shadow-md space-y-4">

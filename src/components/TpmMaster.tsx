@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Area, Activo, TareaPreventiva, Presupuesto, EventoTrazabilidad, Responsable } from "../types";
+import { Area, Activo, TareaPreventiva, Presupuesto, EventoTrazabilidad, Responsable, Manifest } from "../types";
 import PredictivoRul from "./PredictivoRul";
 import EnergiaCO2 from "./EnergiaCO2";
 import RankingProveedores from "./RankingProveedores";
@@ -22,6 +22,8 @@ interface TpmMasterProps {
   tareas: TareaPreventiva[];
   presupuestos: Presupuesto[];
   responsables: Responsable[];
+  manifest: Manifest;
+  currentScenario: 'A' | 'B';
   onAddTarea: (nueva: TareaPreventiva) => void;
   onAddTrazabilidad: (nuevo: EventoTrazabilidad) => void;
   onTriggerToast: (msg: string) => void;
@@ -33,6 +35,8 @@ export default function TpmMaster({
   tareas,
   presupuestos,
   responsables,
+  manifest,
+  currentScenario,
   onAddTarea,
   onAddTrazabilidad,
   onTriggerToast
@@ -85,6 +89,7 @@ export default function TpmMaster({
             areas={areas}
             activos={activos}
             tareas={tareas}
+            currentScenario={currentScenario}
             onAddTarea={onAddTarea}
             onAddTrazabilidad={onAddTrazabilidad}
             onTriggerToast={onTriggerToast}
@@ -94,6 +99,7 @@ export default function TpmMaster({
         {subTab === "m6" && (
           <EnergiaCO2 
             areas={areas}
+            currentScenario={currentScenario}
             onTriggerToast={onTriggerToast}
           />
         )}
@@ -112,6 +118,7 @@ export default function TpmMaster({
           <OeeCondominal 
             areas={areas}
             tareas={tareas}
+            currentScenario={currentScenario}
             onAddTrazabilidad={onAddTrazabilidad}
             onTriggerToast={onTriggerToast}
           />
@@ -121,6 +128,7 @@ export default function TpmMaster({
           <SimuladorAsamblea 
             areas={areas}
             tareas={tareas}
+            currentScenario={currentScenario}
             onTriggerToast={onTriggerToast}
           />
         )}

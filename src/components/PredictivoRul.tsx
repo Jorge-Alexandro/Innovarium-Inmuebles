@@ -21,6 +21,7 @@ interface PredictivoRulProps {
   areas: Area[];
   activos: Activo[];
   tareas: TareaPreventiva[];
+  currentScenario?: 'A' | 'B';
   onAddTarea: (nueva: TareaPreventiva) => void;
   onAddTrazabilidad: (nuevo: EventoTrazabilidad) => void;
   onTriggerToast: (msg: string) => void;
@@ -32,6 +33,7 @@ interface SensorReading {
   activoNombre: string;
   tipo: "vib" | "temp" | "gas" | "kwh" | "presion" | "ph" | "co";
   valor: number;
+  kind?: string;
   unidad: string;
   fecha: string;
   zScore: number;
@@ -41,11 +43,14 @@ export default function PredictivoRul({
   areas, 
   activos, 
   tareas, 
+  currentScenario = 'A',
   onAddTarea, 
   onAddTrazabilidad, 
   onTriggerToast 
 }: PredictivoRulProps) {
   
+  const [selectedPiso, setSelectedPiso] = useState<string>("Todos");
+
   // 1. Assets hardware presets
   const hwPresets = [
     { id: "gas", name: "Gas", sensor: "MQ-2 / MQ-6", desc: "Detector de concentración de gas licuado en cocina", cost: "$8–12 USD", baseMedia: 220, baseSD: 30, unit: "ppm" },
@@ -247,6 +252,27 @@ export default function PredictivoRul({
             <h3 className="font-bold text-[#2B2B2B] text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
               <Activity size={16} className="text-[#84BD4B]" /> Sensores de Campo IoT
             </h3>
+
+            {currentScenario === 'B' && (
+              <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200 space-y-1.5 animate-fade-in">
+                <label className="text-[9px] font-black text-amber-800 uppercase tracking-wider block">Filtro de Sensores por Piso</label>
+                <select
+                  value={selectedPiso}
+                  onChange={(e) => {
+                    setSelectedPiso(e.target.value);
+                    onTriggerToast(`📍 Filtrando sensores para: ${e.target.value}`);
+                  }}
+                  className="w-full text-xs font-bold bg-white border border-amber-200 p-2 rounded-lg text-amber-950 outline-none"
+                >
+                  <option value="Todos">🏢 Todos los Pisos (Planta Completa)</option>
+                  <option value="Sótano/PB">PB - Subestación & Cisterna</option>
+                  <option value="Piso 1-3">Pisos 1-3 - Elevadores Comerciales</option>
+                  <option value="Piso 6">Piso 6 - Elevadores de Pasajeros</option>
+                  <option value="Piso 12">Piso 12 - Azotea & Tanque Elevado</option>
+                </select>
+              </div>
+            )}
+
             <p className="text-[11px] text-slate-400">
               Seleccione un activo instrumentado para simular lecturas del ESP32 receptor y calcular variables de falla:
             </p>

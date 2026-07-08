@@ -30,12 +30,13 @@ import {
 
 interface EnergiaCO2Props {
   areas: Area[];
+  currentScenario?: 'A' | 'B';
   onTriggerToast: (msg: string) => void;
 }
 
-export default function EnergiaCO2({ areas, onTriggerToast }: EnergiaCO2Props) {
-  // Configurable rates and limits
-  const TARIFA_KWH = 3.45; // MXN por kWh tarifa DAC/GDMTO
+export default function EnergiaCO2({ areas, currentScenario = 'A', onTriggerToast }: EnergiaCO2Props) {
+  // Configurable rates and limits dynamically set by Scenario (Módulo 6 & 11)
+  const TARIFA_KWH = currentScenario === 'B' ? 2.45 : 1.15; // $1.15 for Piloto, $2.45 Commercial rate for Torre
   const CO2_FACTOR = 0.432; // kg CO₂ por kWh (CFE México)
 
   // 1. Initial State Data
@@ -303,9 +304,66 @@ export default function EnergiaCO2({ areas, onTriggerToast }: EnergiaCO2Props) {
             </div>
             <div className="flex items-center gap-2 text-[10.5px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-              <span>La demanda máxima ocurre entre las 18:00 y las 20:59 hrs. Se sugiere coordinar el apagado del encendido redundante de la alberca durante este lapso.</span>
+              <span>La demanda máxima ocurre entre las 18:00 y las 20:59 hrs. Se sugerie coordinar el apagado del encendido redundante de la alberca durante este lapso.</span>
             </div>
           </div>
+
+          {/* DESGLOSE POR PISO (Escenario B) */}
+          {currentScenario === 'B' && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-fade-in">
+              <div>
+                <h3 className="font-extrabold text-[#2B2B2B] text-sm flex items-center gap-1.5">
+                  <BarChart4 size={16} className="text-brand-green" /> Desglose de Consumo Eléctrico por Niveles de la Torre
+                </h3>
+                <p className="text-xs text-slate-400">Lecturas de potencia activa agrupadas por zonas de la torre.</p>
+              </div>
+
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { piso: "Sótano/PB", kwh: 1340, costo: 3283 },
+                      { piso: "Pisos 1-3", kwh: 2580, costo: 6321 },
+                      { piso: "Pisos 4-6", kwh: 3620, costo: 8869 },
+                      { piso: "Pisos 7-9", kwh: 4710, costo: 11539 },
+                      { piso: "Pisos 10-12", kwh: 5890, costo: 14430 }
+                    ]}
+                    margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                    <XAxis dataKey="piso" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-[#2B2B2B] text-white p-2.5 rounded-xl text-xs font-mono">
+                              <p className="font-bold">{data.piso}</p>
+                              <p className="text-brand-green font-bold">Consumo: {data.kwh} kWh</p>
+                              <p className="text-amber-500 font-bold">Costo: ${data.costo.toLocaleString()} MXN</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="kwh" fill="#3B82F6" radius={[4, 4, 0, 0]}>
+                      {[
+                        { fill: "#1B2A4A" },
+                        { fill: "#3B82F6" },
+                        { fill: "#10B981" },
+                        { fill: "#F59E0B" },
+                        { fill: "#EC4899" }
+                      ].map((item, index) => (
+                        <Cell key={`cell-${index}`} fill={item.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* EVOLUCIÓN HISTÓRICA */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">

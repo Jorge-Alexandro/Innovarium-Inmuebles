@@ -19,10 +19,11 @@ import { jsPDF } from "jspdf";
 interface SimuladorAsambleaProps {
   areas: Area[];
   tareas: TareaPreventiva[];
+  currentScenario?: 'A' | 'B';
   onTriggerToast: (msg: string) => void;
 }
 
-export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: SimuladorAsambleaProps) {
+export default function SimuladorAsamblea({ areas, tareas, currentScenario = 'A', onTriggerToast }: SimuladorAsambleaProps) {
   
   // 1. Sliders Input Variables (States)
   const [cuotaMensual, setCuotaMensual] = useState<number>(3500); // MXN
@@ -31,6 +32,7 @@ export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: Sim
   const [numUnidades, setNumUnidades] = useState<number>(140); // deptos
   const [pctMorosidad, setPctMorosidad] = useState<number>(15); // %
   const [aniosProyeccion, setAniosProyeccion] = useState<number>(5); // años
+  const [fondoReservaPct, setFondoReservaPct] = useState<number>(10); // % reserved specifically for major infrastructure (Módulo 11)
 
   const COSTO_PROMEDIO_TAREA = 1500; // Costo por mantenimiento promedio en MXN
 
@@ -149,7 +151,9 @@ export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: Sim
     doc.setFontSize(10);
     doc.setTextColor(180, 230, 200);
     doc.text("Herramienta de Simulación y Sustentabilidad TPM para Asambleas de Condóminos", 14, 21);
-    doc.text("Condominio Piloto: Las Vertientes", 14, 26);
+    
+    const condominioNombre = currentScenario === 'B' ? "Torre Ejecutiva Zapopan - Edificio Completo" : "Condominio Piloto: Las Vertientes - Casa Club";
+    doc.text(condominioNombre, 14, 26);
 
     // Context metadata
     doc.setTextColor(50, 50, 50);
@@ -164,7 +168,12 @@ export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: Sim
     doc.text(`· % Morosidad histórica calculada: ${pctMorosidad}%`, 18, 64);
     doc.text(`· Asignación al Programa Preventivo: ${pctPreventivo}%`, 110, 52);
     doc.text(`· Proyección Estimada de Incremento: ${incrementoAnual}% anual`, 110, 58);
-    doc.text(`· Horizonte de Proyección: ${aniosProyeccion} años`, 110, 64);
+    
+    if (currentScenario === 'B') {
+      doc.text(`· Retención Fondo de Reserva: ${fondoReservaPct}%`, 110, 64);
+    } else {
+      doc.text(`· Horizonte de Proyección: ${aniosProyeccion} años`, 110, 64);
+    }
 
     // Horizontal split line
     doc.setDrawColor(220, 220, 220);
@@ -192,30 +201,41 @@ export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: Sim
     doc.setFont("Helvetica", "bold");
     doc.text(`$${calculations.colchonImprevistos.toLocaleString()} MXN (${calculations.colchonPct}%)`, 85, 98);
 
+    let offsetGreenY = 104;
+    if (currentScenario === 'B') {
+      doc.setFont("Helvetica", "normal");
+      doc.text(`🧱 Fondo Especial de Reserva (Criticidad): `, 18, 104);
+      doc.setFont("Helvetica", "bold");
+      const resAnual = calculations.presupuestoAnual * (fondoReservaPct / 100);
+      doc.text(`$${Math.round(resAnual).toLocaleString()} MXN (${fondoReservaPct}%)`, 85, 104);
+      offsetGreenY = 110;
+    }
+
     doc.setFont("Helvetica", "normal");
-    doc.text(`🌱 Ahorro Estimado vs Mantenimiento Correctivo: `, 18, 104);
+    doc.text(`🌱 Ahorro Estimado vs Mantenimiento Correctivo: `, 18, offsetGreenY);
     doc.setFont("Helvetica", "bold");
     doc.setTextColor(94, 142, 46); // green text
-    doc.text(`$${calculations.ahorroAnualEst.toLocaleString()} MXN / año`, 85, 104);
+    doc.text(`$${calculations.ahorroAnualEst.toLocaleString()} MXN / año`, 85, offsetGreenY);
 
     doc.setFont("Helvetica", "bold");
     doc.setTextColor(43, 43, 43);
-    doc.text(`OEE Operativo Condominal Estimado: ${calculations.oeeProyectado}% (Clase Mundial)`, 18, 112);
+    doc.text(`OEE Operativo Condominal Estimado: ${calculations.oeeProyectado}% (Clase Mundial)`, 18, offsetGreenY + 8);
 
     // Prioritized Tasks Table Header
+    const tableHeaderY = offsetGreenY + 18;
     doc.setFillColor(245, 245, 245);
-    doc.rect(14, 122, 182, 7, "F");
+    doc.rect(14, tableHeaderY, 182, 7, "F");
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(80, 80, 80);
-    doc.text("Plan de Tareas Cubierto con la Cuota", 16, 127);
-    doc.text("Costo", 140, 127);
-    doc.text("Estatus Escenario", 165, 127);
+    doc.text("Plan de Tareas Cubierto con la Cuota", 16, tableHeaderY + 5);
+    doc.text("Costo", 140, tableHeaderY + 5);
+    doc.text("Estatus Escenario", 165, tableHeaderY + 5);
 
     // List of tasks
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
-    let tableY = 134;
+    let tableY = tableHeaderY + 12;
     
     prioridadesMapeadas.slice(0, 8).forEach(t => {
       doc.setTextColor(60, 60, 60);
@@ -363,6 +383,31 @@ export default function SimuladorAsamblea({ areas, tareas, onTriggerToast }: Sim
                 className="w-full accent-[#84BD4B] h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer"
               />
             </div>
+
+            {/* Fondo de Reserva slider (Módulo 11 - Escenario B) */}
+            {currentScenario === 'B' && (
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200 space-y-1.5 animate-fade-in">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="font-black text-amber-900 flex items-center gap-1">🛡️ % Retenido para Fondo de Reserva:</span>
+                  <span className="font-mono font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded">{fondoReservaPct}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="30"
+                  step="1"
+                  value={fondoReservaPct}
+                  onChange={(e) => setFondoReservaPct(Number(e.target.value))}
+                  className="w-full accent-amber-600 h-2 bg-amber-100 rounded-lg appearance-none cursor-pointer"
+                />
+                <p className="text-[9.5px] text-amber-800 leading-normal font-medium">
+                  Este porcentaje de la cuota se acumula directamente en una subcuenta inviolable para reparaciones de capital (Elevadores, Red contra Incendios, Subestación eléctrica).
+                </p>
+                <div className="text-[10px] font-mono font-bold text-amber-950 border-t border-amber-200/50 pt-1.5">
+                  Fondo Mensual: ${(calculations.presupuestoAnual * (fondoReservaPct / 100) / 12).toLocaleString(undefined, {maximumFractionDigits:0})} MXN
+                </div>
+              </div>
+            )}
 
             {/* Años proyeccion */}
             <div className="space-y-1">

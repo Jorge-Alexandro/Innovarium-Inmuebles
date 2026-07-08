@@ -1,14 +1,23 @@
 import React, { useState, useMemo } from "react";
 import { 
-  AREAS_INICIALES, 
-  ACTIVOS_INICIALES, 
-  RESPONSABLES_INICIALES, 
-  TAREAS_INICIALES, 
-  PRESUPUESTOS_INICIALES, 
-  EVOLUCION_TRAZABILIDAD_BASE,
-  CONDOMINIO_PILOTO
+  MANIFEST_PILOTO,
+  MANIFEST_TORRE,
+  CONDOMINIO_PILOTO_DATA,
+  CONDOMINIO_TORRE_DATA,
+  AREAS_PILOTO,
+  AREAS_TORRE,
+  ACTIVOS_PILOTO,
+  ACTIVOS_TORRE,
+  RESPONSABLES_PILOTO,
+  RESPONSABLES_TORRE,
+  TAREAS_PILOTO,
+  TAREAS_TORRE,
+  PRESUPUESTOS_PILOTO,
+  PRESUPUESTOS_TORRE,
+  TRAZABILIDAD_PILOTO,
+  TRAZABILIDAD_TORRE
 } from "./data/mockData";
-import { Area, Activo, TareaPreventiva, Presupuesto, EventoTrazabilidad, Responsable } from "./types";
+import { Area, Activo, TareaPreventiva, Presupuesto, EventoTrazabilidad, Responsable, Manifest } from "./types";
 import { BRAND } from "./config/brand";
 
 import Dashboard from "./components/Dashboard";
@@ -34,17 +43,31 @@ import {
   Lock,
   Compass,
   FileCheck,
-  Trees
+  Trees,
+  ToggleLeft,
+  Sliders,
+  AppWindow
 } from "lucide-react";
 
 export default function App() {
   const [tab, setTab] = useState<string>("panel");
-  const [areas, setAreas] = useState<Area[]>(AREAS_INICIALES);
-  const [activos, setActivos] = useState<Activo[]>(ACTIVOS_INICIALES);
-  const [responsables, setResponsables] = useState<Responsable[]>(RESPONSABLES_INICIALES);
-  const [tareas, setTareas] = useState<TareaPreventiva[]>(TAREAS_INICIALES);
-  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>(PRESUPUESTOS_INICIALES);
-  const [trazabilidad, setTrazabilidad] = useState<EventoTrazabilidad[]>(EVOLUCION_TRAZABILIDAD_BASE);
+  const [currentScenario, setCurrentScenario] = useState<'A' | 'B'>('A');
+
+  const manifest = useMemo<Manifest>(() => {
+    return currentScenario === 'A' ? MANIFEST_PILOTO : MANIFEST_TORRE;
+  }, [currentScenario]);
+
+  const condominio = useMemo(() => {
+    return currentScenario === 'A' ? CONDOMINIO_PILOTO_DATA : CONDOMINIO_TORRE_DATA;
+  }, [currentScenario]);
+
+  // States initialized with Scenario A (Piloto) data by default
+  const [areas, setAreas] = useState<Area[]>(AREAS_PILOTO);
+  const [activos, setActivos] = useState<Activo[]>(ACTIVOS_PILOTO);
+  const [responsables, setResponsables] = useState<Responsable[]>(RESPONSABLES_PILOTO);
+  const [tareas, setTareas] = useState<TareaPreventiva[]>(TAREAS_PILOTO);
+  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>(PRESUPUESTOS_PILOTO);
+  const [trazabilidad, setTrazabilidad] = useState<EventoTrazabilidad[]>(TRAZABILIDAD_PILOTO);
 
   // Focus and toaster notifications
   const [selectedTarea, setSelectedTarea] = useState<TareaPreventiva | null>(null);
@@ -116,6 +139,27 @@ export default function App() {
     }
   };
 
+  const handleSwitchScenario = (scenario: 'A' | 'B') => {
+    setCurrentScenario(scenario);
+    if (scenario === 'A') {
+      setAreas(AREAS_PILOTO);
+      setActivos(ACTIVOS_PILOTO);
+      setResponsables(RESPONSABLES_PILOTO);
+      setTareas(TAREAS_PILOTO);
+      setPresupuestos(PRESUPUESTOS_PILOTO);
+      setTrazabilidad(TRAZABILIDAD_PILOTO);
+      triggerToast("🔄 Cargado Escenario A: Piloto (Casa Club - Las Vertientes)");
+    } else {
+      setAreas(AREAS_TORRE);
+      setActivos(ACTIVOS_TORRE);
+      setResponsables(RESPONSABLES_TORRE);
+      setTareas(TAREAS_TORRE);
+      setPresupuestos(PRESUPUESTOS_TORRE);
+      setTrazabilidad(TRAZABILIDAD_TORRE);
+      triggerToast("🏢 Cargado Escenario B: Torre Ejecutiva Zapopan (Multi-piso)");
+    }
+  };
+
   const handleAddTrazabilidad = (nuevo: EventoTrazabilidad) => {
     setTrazabilidad(prev => [nuevo, ...prev]);
   };
@@ -127,6 +171,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row antialiased select-none font-sans" style={{ background: BRAND.colors.bg }}>
+      
+      {/* INJECT DYNAMIC PALETTE OVERRIDES FROM THE ACTIVE MANIFEST CONFIG */}
+      <style>{`
+        :root {
+          --color-brand-green: ${manifest.theme.accentColor};
+          --color-brand-green-dark: ${manifest.theme.accentColor === '#B08D4C' ? '#A38042' : '#B45309'};
+          --color-brand-green-soft: ${manifest.theme.accentColor === '#B08D4C' ? '#FAF6ED' : '#FEF3C7'};
+          --color-brand-black: ${manifest.theme.primaryColor};
+        }
+      `}</style>
       
       {/* SIDEBAR NAVIGATION - DESKTOP */}
       <aside className="hidden md:flex md:flex-col md:w-64 bg-white text-slate-800 shrink-0 relative border-r border-slate-150">
@@ -170,14 +224,50 @@ export default function App() {
           })}
         </nav>
 
+        {/* Manifest Engine Switcher (Módulo 11) */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Motor de Manifest v1.2</span>
+            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
+              currentScenario === 'A' ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+            }`}>
+              {currentScenario === 'A' ? "Piloto" : "Completo"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => handleSwitchScenario('A')}
+              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
+                currentScenario === 'A'
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              Escenario A
+            </button>
+            <button
+              onClick={() => handleSwitchScenario('B')}
+              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
+                currentScenario === 'B'
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              Escenario B
+            </button>
+          </div>
+        </div>
+
         {/* Condominium Label Card */}
-        <div className="p-4 border-t border-slate-100 bg-[#F8F9FA] mt-auto">
+        <div className="p-4 border-t border-slate-100 bg-[#F8F9FA]">
           <div className="flex items-start gap-2.5">
             <Building2 size={16} className="text-[#C5A059] mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">CONDOMINIO PILOTO</span>
-              <p className="text-xs font-bold text-[#0A1B3D] truncate">{CONDOMINIO_PILOTO.nombre}</p>
-              <span className="text-[9px] text-slate-500 block font-normal leading-normal truncate">{CONDOMINIO_PILOTO.direccion}</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                {currentScenario === 'A' ? "CONDOMINIO PILOTO" : "CONDOMINIO MULTI-PISO"}
+              </span>
+              <p className="text-xs font-bold text-[#0A1B3D] truncate">{condominio.nombre}</p>
+              <span className="text-[9px] text-slate-500 block font-normal leading-normal truncate">{condominio.direccion}</span>
             </div>
           </div>
         </div>
@@ -258,7 +348,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400">Régimen Legal:</span>
             <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full uppercase">
-              {CONDOMINIO_PILOTO.regimen}
+              {condominio.regimen}
             </span>
           </div>
 
@@ -398,6 +488,8 @@ export default function App() {
               tareas={tareas}
               presupuestos={presupuestos}
               responsables={responsables}
+              manifest={manifest}
+              currentScenario={currentScenario}
               onAddTarea={handleAddTarea}
               onAddTrazabilidad={handleAddTrazabilidad}
               onTriggerToast={triggerToast}
