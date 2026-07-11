@@ -307,7 +307,7 @@ export default function ReportesAsamblea({
     doc.setFontSize(8);
     doc.setTextColor(160, 160, 160);
     doc.line(14, 270, 196, 270);
-    doc.text("Línea Oficial de Soporte Innovarum Administraciones. Control de Auditoría Legal. 2026.", 14, 275);
+    doc.text("Línea Oficial de Soporte Innovarum Technologies. Control de Auditoría Legal. 2026.", 14, 275);
 
     doc.save(`Innovarum_Reporte_Oficial_${reportType}.pdf`);
     onTriggerToast(`🎉 PDF del reporte ${reportType} descargado.`);

@@ -1,5 +1,5 @@
 /**
- * Configuración de marca de Innovarum Administraciones.
+ * Configuración de marca de Innovarum Technologies.
  * Inspirada en la vertical tech e inmobiliaria de Innovarum.
  */
  

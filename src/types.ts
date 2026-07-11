@@ -220,5 +220,6 @@ export interface Manifest {
     enablePareto: boolean;
     enableAutoCalendarSync: boolean;
     enableWhatsApp: boolean;
+    enableIsometricView?: boolean;
   };
 }

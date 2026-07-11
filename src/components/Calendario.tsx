@@ -247,7 +247,7 @@ export default function Calendario({ tareas, areas, onSelectTarea, onTriggerToas
             <h4 className="text-xs font-bold text-brand-green-dark uppercase">¿Por qué es preventivo?</h4>
             <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
               Hoy los condominios operan de forma reactiva, destituyendo cargos de administración o personal técnico cuando suceden fallas críticas. 
-              <strong> Innovarum Administraciones</strong> empodera a la asamblea al proveer trazabilidad de cada paso de mantenimiento antes de que los activos colapsen.
+              <strong> Innovarum Technologies</strong> empodera a la asamblea al proveer trazabilidad de cada paso de mantenimiento antes de que los activos colapsen.
             </p>
           </div>
 

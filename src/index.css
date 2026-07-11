@@ -1,7 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cinzel", "Playfair Display", "Georgia", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --color-brand-green: #C5A059;
   --color-brand-green-dark: #A38042;
   --color-brand-green-soft: #FAF6ED;

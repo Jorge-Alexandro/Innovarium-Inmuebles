@@ -259,7 +259,7 @@ export default function SimuladorAsamblea({ areas, tareas, currentScenario = 'A'
     doc.setTextColor(150, 150, 150);
     doc.text("Firma de Acreditación de Proyección:", 14, 266);
     doc.text("__________________________________________", 110, 266);
-    doc.text("Innovarum Administraciones - Algoritmo TPM de Simulación Financiera 2026. Huella Verde.", 14, 273);
+    doc.text("Innovarum Technologies - Algoritmo TPM de Simulación Financiera 2026. Huella Verde.", 14, 273);
 
     doc.save(`Innovarum_Proyecto_Firma_Asamblea_${cuotaMensual}cuota.pdf`);
     onTriggerToast("📄 PDF del Escenario de Asamblea exportado con éxito.");

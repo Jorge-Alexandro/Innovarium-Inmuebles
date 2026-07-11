@@ -26,6 +26,7 @@ import Calendario from "./components/Calendario";
 import Finanzas from "./components/Finanzas";
 import TpmMaster from "./components/TpmMaster";
 import TareaModal from "./components/TareaModal";
+import { InnovarumLogo } from "./components/InnovarumLogo";
 
 import { 
   LayoutDashboard, 
@@ -184,13 +185,41 @@ export default function App() {
       
       {/* SIDEBAR NAVIGATION - DESKTOP */}
       <aside className="hidden md:flex md:flex-col md:w-64 bg-white text-slate-800 shrink-0 relative border-r border-slate-150">
-        <div className="p-6 flex items-center gap-3 border-b border-neutral-100">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#F8F9FA] border border-slate-200">
-            <Trees size={20} className="text-[#0A1B3D]" />
+        <div className="p-6 border-b border-neutral-100 flex justify-center bg-slate-50/20">
+          <InnovarumLogo size={64} vertical={true} textColor="text-[#0A1B3D]" />
+        </div>
+
+        {/* Manifest Engine Switcher (Módulo 11) */}
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Motor de Manifest v1.2</span>
+            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
+              currentScenario === 'A' ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+            }`}>
+              {currentScenario === 'A' ? "Piloto" : "Completo"}
+            </span>
           </div>
-          <div>
-            <h1 className="text-sm font-black tracking-tight text-[#0A1B3D] leading-none uppercase">Innovarum</h1>
-            <p className="text-[8px] text-[#C5A059] uppercase tracking-wider font-extrabold mt-1">ADMINISTRACIONES</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => handleSwitchScenario('A')}
+              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
+                currentScenario === 'A'
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              Escenario A
+            </button>
+            <button
+              onClick={() => handleSwitchScenario('B')}
+              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
+                currentScenario === 'B'
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              Escenario B
+            </button>
           </div>
         </div>
 
@@ -224,40 +253,6 @@ export default function App() {
           })}
         </nav>
 
-        {/* Manifest Engine Switcher (Módulo 11) */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Motor de Manifest v1.2</span>
-            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
-              currentScenario === 'A' ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-            }`}>
-              {currentScenario === 'A' ? "Piloto" : "Completo"}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => handleSwitchScenario('A')}
-              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
-                currentScenario === 'A'
-                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              Escenario A
-            </button>
-            <button
-              onClick={() => handleSwitchScenario('B')}
-              className={`py-1 px-1.5 rounded text-[9px] font-bold border transition-all text-center ${
-                currentScenario === 'B'
-                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              Escenario B
-            </button>
-          </div>
-        </div>
-
         {/* Condominium Label Card */}
         <div className="p-4 border-t border-slate-100 bg-[#F8F9FA]">
           <div className="flex items-start gap-2.5">
@@ -275,15 +270,7 @@ export default function App() {
 
       {/* MOBILE BAR */}
       <header className="md:hidden bg-white border-b border-slate-150 p-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-[#F8F9FA] text-[#0A1B3D] border border-slate-150">
-            <Trees size={16} />
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-[#0A1B3D] leading-none uppercase">Innovarum</h1>
-            <span className="text-[8px] font-black uppercase tracking-wider block" style={{ color: BRAND.colors.green }}>Administraciones</span>
-          </div>
-        </div>
+        <InnovarumLogo size={32} vertical={false} textColor="text-[#0A1B3D]" className="shrink-0" />
 
         <div className="flex items-center gap-2">
           {/* Notification bell on mobile */}
@@ -449,6 +436,8 @@ export default function App() {
               trazabilidad={trazabilidad}
               onSelectTarea={setSelectedTarea}
               onSetTab={setTab}
+              manifest={manifest}
+              currentScenario={currentScenario}
             />
           )}
 

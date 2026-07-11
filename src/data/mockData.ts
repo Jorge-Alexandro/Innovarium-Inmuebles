@@ -23,7 +23,8 @@ export const MANIFEST_PILOTO: Manifest = {
     enableFondoReserva: false,
     enablePareto: false,
     enableAutoCalendarSync: true,
-    enableWhatsApp: false
+    enableWhatsApp: false,
+    enableIsometricView: false
   }
 };
 
@@ -31,9 +32,9 @@ export const MANIFEST_TORRE: Manifest = {
   companyId: "innovarum_torre_ejecutiva",
   scenario: "edificio",
   theme: {
-    primaryColor: "#0F172A", // Slate-900 / Modern Tech
-    accentColor: "#D97706",  // Amber-600 / Industrial
-    fontFamily: "DM Sans, sans-serif"
+    primaryColor: "#1B2A4A", // Azul marino Innovarum
+    accentColor: "#B08D4C",  // Dorado Innovarum
+    fontFamily: "Inter, sans-serif"
   },
   navigation: ["dashboard", "areas", "calendario", "finanzas", "tpm"],
   features: {
@@ -42,7 +43,8 @@ export const MANIFEST_TORRE: Manifest = {
     enableFondoReserva: true,
     enablePareto: true,
     enableAutoCalendarSync: true,
-    enableWhatsApp: true
+    enableWhatsApp: true,
+    enableIsometricView: true
   }
 };
 
@@ -69,7 +71,7 @@ export const CONDOMINIO_TORRE_DATA: Condominio = {
   direccion: "Av. Patria 1250, Villa Universitaria, Zapopan, Jalisco",
   regimen: "Régimen de Propiedad en Condominio Comercial y de Oficinas",
   tipo: "edificio",
-  num_pisos: 12,
+  num_pisos: 10,
   tarifa_kwh: 2.45, // Tarifa comercial CFE aplicable en Jalisco
   meta_oee: 92
 };
@@ -78,20 +80,26 @@ export const CONDOMINIO_TORRE_DATA: Condominio = {
 // 3. PISOS Y DEPARTAMENTOS (Escenario B)
 // ==========================================
 
-export const PISOS_TORRE: Piso[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `piso_${i + 1}`,
-  condominio_id: CONDOMINIO_TORRE_DATA.id,
-  numero: i + 1,
-  nombre: i === 0 ? "PB - Lobby y Amenidades" : `Piso ${i + 1}`
-}));
+export const PISOS_TORRE: Piso[] = [
+  { id: "piso_1", condominio_id: "condo_torre_999", numero: 1, nombre: "P1 · Lobby / Biblioteca & Plaza" },
+  { id: "piso_2", condominio_id: "condo_torre_999", numero: 2, nombre: "P2 · Sede CAF & CTBUH HQ" },
+  { id: "piso_3", condominio_id: "condo_torre_999", numero: 3, nombre: "P3 · Aulas Técnicas / Talleres" },
+  { id: "piso_4", condominio_id: "condo_torre_999", numero: 4, nombre: "P4 · Auditorio Interactivo" },
+  { id: "piso_5", condominio_id: "condo_torre_999", numero: 5, nombre: "P5 · Talleres Juveniles y Tobogán" },
+  { id: "piso_6", condominio_id: "condo_torre_999", numero: 6, nombre: "P6 · Espacio Escénico / Teatro" },
+  { id: "piso_7", condominio_id: "condo_torre_999", numero: 7, nombre: "P7 · Gimnasio y Canchas" },
+  { id: "piso_8", condominio_id: "condo_torre_999", numero: 8, nombre: "P8 · Espacios de Aprendizaje / Aulas" },
+  { id: "piso_9", condominio_id: "condo_torre_999", numero: 9, nombre: "P9 · Jardín Escolar y Aula Abierta" },
+  { id: "piso_10", condominio_id: "condo_torre_999", numero: 10, nombre: "P10 · Terraza & Roof Garden" }
+];
 
-// Generamos 10 departamentos por piso (total 120 deptos)
+// Generamos 10 departamentos por piso (total 100 deptos)
 export const DEPARTAMENTOS_TORRE: Departamento[] = PISOS_TORRE.flatMap((p) => 
   Array.from({ length: 10 }, (_, idx) => ({
     id: `depto_${p.numero}_${idx + 1}`,
     piso_id: p.id,
     numero: `${p.numero}${String(idx + 1).padStart(2, '0')}`,
-    tipo: p.numero <= 2 ? "comercial" : p.numero >= 10 ? "oficina" : "residencial"
+    tipo: p.numero <= 2 ? "comercial" : p.numero >= 9 ? "oficina" : "residencial"
   }))
 );
 
@@ -113,17 +121,24 @@ export const AREAS_PILOTO: Area[] = [
 ];
 
 export const AREAS_TORRE: Area[] = [
-  // 10 Básicas
-  ...AREAS_PILOTO.map(a => ({ ...a, condominio_id: CONDOMINIO_TORRE_DATA.id })),
-  // 8 Adicionales de Escenario B
-  { id: "elevadores", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Elevadores", estado_salud: "por_vencer", categoria: "critica" },
-  { id: "subestacion", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Subestación eléctrica", estado_salud: "al_dia", categoria: "critica" },
-  { id: "hidroneumatico", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Sistema hidroneumático", estado_salud: "al_dia", categoria: "critica" },
-  { id: "planta_emergencia", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Planta de emergencia", estado_salud: "al_dia", categoria: "critica" },
-  { id: "cisterna", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Cisterna potable", estado_salud: "al_dia", categoria: "normativa" },
-  { id: "tanque_elevado", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Tanque elevado", estado_salud: "al_dia", categoria: "critica" },
-  { id: "azotea", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Azotea / Impermeabilización", estado_salud: "vencido", categoria: "normativa" },
-  { id: "acceso_vehicular", condominio_id: CONDOMINIO_TORRE_DATA.id, nombre: "Control de acceso vehicular", estado_salud: "al_dia", categoria: "basica" }
+  { id: "gas", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", nombre: "Gas", estado_salud: "al_dia", categoria: "critica" },
+  { id: "luz", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_2", nombre: "Luz / Electricidad", estado_salud: "por_vencer", categoria: "critica" },
+  { id: "agua", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", nombre: "Agua", estado_salud: "al_dia", categoria: "critica" },
+  { id: "electro", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_6", nombre: "Electrodomésticos", estado_salud: "al_dia", categoria: "basica" },
+  { id: "llaves", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_7", nombre: "Llaves / Cerrajería", estado_salud: "por_vencer", categoria: "basica" },
+  { id: "banos", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_7", nombre: "Baños", estado_salud: "al_dia", categoria: "basica" },
+  { id: "cocina", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", nombre: "Cocina", estado_salud: "vencido", categoria: "basica" },
+  { id: "seguridad", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", nombre: "Sistemas de Seguridad", estado_salud: "al_dia", categoria: "normativa" },
+  { id: "incendios", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", nombre: "Sistemas Contra Incendios", estado_salud: "vencido", categoria: "normativa" },
+  { id: "amenidades", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_10", nombre: "Amenidades", estado_salud: "al_dia", categoria: "basica" },
+  { id: "elevadores", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_5", nombre: "Elevadores", estado_salud: "por_vencer", categoria: "critica" },
+  { id: "subestacion", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_2", nombre: "Subestación eléctrica", estado_salud: "al_dia", categoria: "critica" },
+  { id: "hidroneumatico", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_3", nombre: "Sistema hidroneumático", estado_salud: "al_dia", categoria: "critica" },
+  { id: "planta_emergencia", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_3", nombre: "Planta de emergencia", estado_salud: "al_dia", categoria: "critica" },
+  { id: "cisterna", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_9", nombre: "Cisterna potable", estado_salud: "al_dia", categoria: "normativa" },
+  { id: "tanque_elevado", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_9", nombre: "Tanque elevado", estado_salud: "al_dia", categoria: "critica" },
+  { id: "azotea", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_9", nombre: "Azotea / Impermeabilización", estado_salud: "vencido", categoria: "normativa" },
+  { id: "acceso_vehicular", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_4", nombre: "Control de acceso vehicular", estado_salud: "al_dia", categoria: "basica" }
 ];
 
 // ==========================================
@@ -150,10 +165,10 @@ export const ACTIVOS_TORRE: Activo[] = [
   { id: "act_b12", area_id: "elevadores", piso_id: "piso_6", nombre: "Elevador de Carga #2", marca: "Otis", fecha_instalacion: "2020-03-15", estado: "falla_parcial", mtbf_horas: 950, notas: "Uso pesado para mudanzas e intendencia" },
   { id: "act_b13", area_id: "subestacion", piso_id: "piso_1", nombre: "Transformador Trifásico Seco 500KVA", marca: "Prolec", fecha_instalacion: "2020-01-10", estado: "operativo", mtbf_horas: 4500 },
   { id: "act_b14", area_id: "hidroneumatico", piso_id: "piso_1", nombre: "Bomba de Presión Constante Duplex 15HP", marca: "Grundfos", fecha_instalacion: "2021-02-28", estado: "operativo", mtbf_horas: 1500 },
-  { id: "act_b15", area_id: "planta_emergencia", piso_id: "piso_12", nombre: "Planta de Emergencia Diésel 250kW", marca: "Cummins", fecha_instalacion: "2019-11-20", estado: "operativo", mtbf_horas: 2800 },
+  { id: "act_b15", area_id: "planta_emergencia", piso_id: "piso_3", nombre: "Planta de Emergencia Diésel 250kW", marca: "Cummins", fecha_instalacion: "2019-11-20", estado: "operativo", mtbf_horas: 2800 },
   { id: "act_b16", area_id: "cisterna", piso_id: "piso_1", nombre: "Cisterna de Agua Potable 80,000L", marca: "Cemix", fecha_instalacion: "2019-10-05", estado: "operativo", mtbf_horas: 8000 },
-  { id: "act_b17", area_id: "tanque_elevado", piso_id: "piso_12", nombre: "Tanque Elevado Regulador de Presión 20,000L", marca: "Rotoplas", fecha_instalacion: "2019-12-01", estado: "operativo", mtbf_horas: 6500 },
-  { id: "act_b18", area_id: "azotea", piso_id: "piso_12", nombre: "Impermeabilización General de Azotea Elastomérica", marca: "Fester", fecha_instalacion: "2021-05-18", estado: "critico", mtbf_horas: 3000 },
+  { id: "act_b17", area_id: "tanque_elevado", piso_id: "piso_10", nombre: "Tanque Elevado Regulador de Presión 20,000L", marca: "Rotoplas", fecha_instalacion: "2019-12-01", estado: "operativo", mtbf_horas: 6500 },
+  { id: "act_b18", area_id: "azotea", piso_id: "piso_10", nombre: "Impermeabilización General de Azotea Elastomérica", marca: "Fester", fecha_instalacion: "2021-05-18", estado: "critico", mtbf_horas: 3000 },
   { id: "act_b19", area_id: "acceso_vehicular", piso_id: "piso_1", nombre: "Barreras de Acceso Vehicular Automatizadas RFID", marca: "Came", fecha_instalacion: "2022-07-22", estado: "operativo", mtbf_horas: 2200 }
 ];
 
@@ -519,7 +534,7 @@ export const OEE_HISTORICO_TORRE_DATA: OeeHistorico[] = [
   { id: "oee_f1", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_1", periodo: "Jun 2026", disponibilidad: 99.6, rendimiento: 95.0, calidad: 99.0, oee: 93.7 },
   { id: "oee_f2", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_2", periodo: "Jun 2026", disponibilidad: 98.2, rendimiento: 92.0, calidad: 97.5, oee: 88.1 },
   { id: "oee_f3", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_3", periodo: "Jun 2026", disponibilidad: 99.0, rendimiento: 94.2, calidad: 98.0, oee: 91.4 },
-  { id: "oee_f12", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_12", periodo: "Jun 2026", disponibilidad: 95.5, rendimiento: 86.4, calidad: 93.0, oee: 76.7 } // Elevado por la azotea
+  { id: "oee_f10", condominio_id: CONDOMINIO_TORRE_DATA.id, piso_id: "piso_10", periodo: "Jun 2026", disponibilidad: 95.5, rendimiento: 86.4, calidad: 93.0, oee: 76.7 } // Elevado por la azotea
 ];
 
 // Pareto 80/20 Incidencias Correctivas por Área (Escenario B)

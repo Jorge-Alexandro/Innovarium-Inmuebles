@@ -1,0 +1,2 @@
+Sube aquí tu archivo Inovarium_3D_Meshy_Quality_V2.glb directamente.
+Una vez subido, el visor 3D lo cargará automáticamente de forma transparente sin Draco ni WebP.

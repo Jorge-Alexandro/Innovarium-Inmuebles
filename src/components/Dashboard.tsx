@@ -1,6 +1,8 @@
 import React from "react";
-import { TareaPreventiva, Area, EstadoSalud, EventoTrazabilidad } from "../types";
+import { TareaPreventiva, Area, EstadoSalud, EventoTrazabilidad, Manifest } from "../types";
 import { BRAND } from "../config/brand";
+import EdificioIsometrico from "./EdificioIsometrico";
+import { InnovarumLogo } from "./InnovarumLogo";
 import { 
   Clock, 
   AlertTriangle, 
@@ -23,9 +25,20 @@ interface DashboardProps {
   trazabilidad: EventoTrazabilidad[];
   onSelectTarea: (tarea: TareaPreventiva) => void;
   onSetTab: (tab: string) => void;
+  manifest?: Manifest;
+  currentScenario?: 'A' | 'B';
 }
 
-export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, onSelectTarea, onSetTab }: DashboardProps) {
+export default function Dashboard({ 
+  tareas, 
+  areas, 
+  presupuestos, 
+  trazabilidad, 
+  onSelectTarea, 
+  onSetTab,
+  manifest,
+  currentScenario
+}: DashboardProps) {
   // Calculando KPIs generales
   const totalTareas = tareas.length;
   const completadas = tareas.filter(t => t.estado === "programada" && t.costo_real !== null).length; // Completas con costo real o evidencia cargada
@@ -133,7 +146,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("INNOVARUM ADMINISTRACIONES", 15, 15);
+    doc.text("INNOVARUM TECHNOLOGIES", 15, 15);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -152,7 +165,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
     });
     doc.text(`Fecha de Emisión: ${dateFormatted}`, 135, 15);
     doc.text("Desarrollo: Condominio Las Vertientes", 135, 21);
-    doc.text("Soporte: Kenzly & Innovarum Administraciones", 135, 27);
+    doc.text("Soporte: Kenzly & Innovarum Technologies", 135, 27);
 
     let y = 47;
 
@@ -348,7 +361,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.text("Innovarum Administraciones - Resumen Técnico Informativo - Página 1 de 2", 15, 287);
+    doc.text("Innovarum Technologies - Resumen Técnico Informativo - Página 1 de 2", 15, 287);
 
     // PAGE 2: COMPARATIVO DEL PRESUPUESTO ANUAL
     doc.addPage();
@@ -360,7 +373,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("INNOVARUM ADMINISTRACIONES - ANALISIS FINANCIERO", 15, 12);
+    doc.text("INNOVARUM TECHNOLOGIES - ANALISIS FINANCIERO", 15, 12);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
@@ -499,7 +512,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.text("Innovarum Administraciones - Resumen Técnico Informativo - Página 2 de 2", 15, 287);
+    doc.text("Innovarum Technologies - Resumen Técnico Informativo - Página 2 de 2", 15, 287);
 
     doc.save(`Innovarum_Reporte_Ejecutivo_${new Date().toISOString().slice(0,10)}.pdf`);
   };
@@ -509,8 +522,8 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
       {/* Encabezado */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm animate-fade-in">
         <div>
-          <span className="text-[11px] font-bold tracking-wider text-brand-green-dark uppercase bg-brand-green-soft px-2.5 py-1 rounded-full border border-brand-green/20">organizaciones inteligentes</span>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#0A1B3D] mt-2">Innovarum Administraciones</h1>
+          <span className="text-[10px] font-extrabold tracking-wider text-brand-green-dark uppercase bg-brand-green-soft px-2.5 py-0.5 rounded-full border border-brand-green/10 inline-block mb-2">Organizaciones Inteligentes IoT</span>
+          <InnovarumLogo size={52} showText={true} textColor="text-[#0A1B3D]" />
           <p className="text-gray-500 text-sm mt-1">Plataforma de mantenimiento preventivo para Condominios en México. Trazabilidad integral y oportuna.</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
@@ -578,123 +591,255 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
       </div>
 
       {/* Main Content Sections */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        
-        {/* SEMÁFORO DE SALUD DE ÁREAS */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-[#2B2B2B] text-base flex items-center gap-2">
-                <Activity size={18} className="text-brand-green" /> Semáforo por Área
-              </h3>
-              <button onClick={() => onSetTab("areas")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Ver todo</button>
+      {manifest?.features?.enableIsometricView ? (
+        <>
+          {/* Vista Isométrica visible en todos los tamaños de pantalla */}
+          <div className="block">
+            <EdificioIsometrico 
+              areas={areas}
+              tareas={tareas}
+              onSelectTarea={onSelectTarea}
+              onSetTab={onSetTab}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Vista Semáforo para Mobile (Solo visible < 1024px) */}
+            <div className="block lg:hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-[#2B2B2B] text-base flex items-center gap-2">
+                    <Activity size={18} className="text-brand-green" /> Semáforo por Área
+                  </h3>
+                  <button onClick={() => onSetTab("areas")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Ver todo</button>
+                </div>
+                <p className="text-xs text-slate-400 mb-4">Estatus de los activos preventivos divididos en las áreas del régimen condominial.</p>
+                
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {areas.map(a => {
+                    const salud = getAreaSalud(a.id);
+                    return (
+                      <div key={a.id} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+                        <span className="text-sm font-medium text-slate-700">{a.nombre}</span>
+                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition"
+                          style={{ color: salud.color, background: salud.bg }}>
+                          <span className="w-2 h-2 rounded-full" style={{ background: salud.dot }} />
+                          {salud.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mb-4">Estatus de los activos preventivos divididos en las 10 áreas del régimen condominial.</p>
-            
-            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-              {areas.map(a => {
-                const salud = getAreaSalud(a.id);
-                return (
-                  <div key={a.id} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <span className="text-sm font-medium text-slate-700">{a.nombre}</span>
-                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition"
-                      style={{ color: salud.color, background: salud.bg }}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: salud.dot }} />
-                      {salud.label}
-                    </span>
+
+            {/* GRAFICA DISTRIBUCIÓN */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800 text-base">Estatus de Tareas</h3>
+                </div>
+                <p className="text-xs text-slate-400 mb-6 font-medium">Proporción general de las tareas preventivas asignadas en la instalación.</p>
+                
+                <div className="h-48 relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={75}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value} tareas`, 'Cantidad']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute text-center">
+                    <span className="text-2xl font-extrabold text-neutral-700">{totalTareas}</span>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest">Tareas</p>
                   </div>
+                </div>
+
+                <div className="space-y-2 mt-6">
+                  {chartData.map((d, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                        <span>{d.name}</span>
+                      </div>
+                      <span className="font-semibold text-neutral-700">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* PROXIMOS MANTENIMIENTOS */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-[#2B2B2B] text-base">Próximos Vencimientos</h3>
+                <button onClick={() => onSetTab("calendario")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Calendario</button>
+              </div>
+              <p className="text-xs text-slate-400 mb-4 font-normal">Acciones preventivas prioritarias requeridas para sostener la habitabilidad.</p>
+              
+              <div className="space-y-3">
+                {proximosVencimientos.map(t => {
+                  const esVencido = t.estado === "vencida";
+                  const esEnCurso = t.estado === "en_curso";
+                  return (
+                    <button 
+                      key={t.id} 
+                      onClick={() => onSelectTarea(t)}
+                      className="w-full text-left p-3.5 rounded-xl border border-slate-100 hover:bg-slate-50 hover:border-slate-250 transition flex items-center justify-between group animate-fade-in"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <h4 className="text-xs font-bold text-[#2B2B2B] truncate group-hover:text-brand-green transition">{t.titulo}</h4>
+                        <span className="inline-block text-[10px] text-gray-400 mt-1 uppercase font-mono bg-neutral-50 px-2 py-0.5 rounded">
+                          {areas.find(a => a.id === t.area_id)?.nombre || t.area_id}
+                        </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="text-[10px] font-bold block text-gray-500">{t.proxima_fecha}</span>
+                        <span className={`text-[9px] font-bold inline-block px-1.5 py-0.5 rounded-full mt-1 ${
+                          esVencido ? 'bg-red-50 text-red-700' : esEnCurso ? 'bg-yellow-50 text-brand-black border border-amber/15' : 'bg-neutral-50 text-gray-600'
+                        }`}>
+                          {esVencido ? "Vencida" : esEnCurso ? "Por vencer" : "Asignada"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        </>
+      ) : (
+        /* VISTA ORIGINAL SIN ISOMÉTRICO (3 columnas) */
+        <div className="grid lg:grid-cols-3 gap-6">
+          
+          {/* SEMÁFORO DE SALUD DE ÁREAS */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-[#2B2B2B] text-base flex items-center gap-2">
+                  <Activity size={18} className="text-brand-green" /> Semáforo por Área
+                </h3>
+                <button onClick={() => onSetTab("areas")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Ver todo</button>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">Estatus de los activos preventivos divididos en las 10 áreas del régimen condominial.</p>
+              
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {areas.map(a => {
+                  const salud = getAreaSalud(a.id);
+                  return (
+                    <div key={a.id} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+                      <span className="text-sm font-medium text-slate-700">{a.nombre}</span>
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition"
+                        style={{ color: salud.color, background: salud.bg }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: salud.dot }} />
+                        {salud.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* GRAFICA DISTRIBUCIÓN */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-800 text-base">Estatus de Tareas</h3>
+              </div>
+              <p className="text-xs text-slate-400 mb-6 font-medium">Proporción general de las tareas preventivas asignadas en la instalación.</p>
+              
+              <div className="h-48 relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} tareas`, 'Cantidad']} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute text-center">
+                  <span className="text-2xl font-extrabold text-neutral-700">{totalTareas}</span>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest">Tareas</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 mt-6">
+                {chartData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                      <span>{d.name}</span>
+                    </div>
+                    <span className="font-semibold text-neutral-700">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* PROXIMOS MANTENIMIENTOS */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-[#2B2B2B] text-base">Próximos Vencimientos</h3>
+              <button onClick={() => onSetTab("calendario")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Calendario</button>
+            </div>
+            <p className="text-xs text-slate-400 mb-4 font-normal">Acciones preventivas prioritarias requeridas para sostener la habitabilidad.</p>
+            
+            <div className="space-y-3">
+              {proximosVencimientos.map(t => {
+                const esVencido = t.estado === "vencida";
+                const esEnCurso = t.estado === "en_curso";
+                return (
+                  <button 
+                    key={t.id} 
+                    onClick={() => onSelectTarea(t)}
+                    className="w-full text-left p-3.5 rounded-xl border border-slate-100 hover:bg-slate-50 hover:border-slate-250 transition flex items-center justify-between group animate-fade-in"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <h4 className="text-xs font-bold text-[#2B2B2B] truncate group-hover:text-brand-green transition">{t.titulo}</h4>
+                      <span className="inline-block text-[10px] text-gray-400 mt-1 uppercase font-mono bg-neutral-50 px-2 py-0.5 rounded">
+                        {areas.find(a => a.id === t.area_id)?.nombre || t.area_id}
+                      </span>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-[10px] font-bold block text-gray-500">{t.proxima_fecha}</span>
+                      <span className={`text-[9px] font-bold inline-block px-1.5 py-0.5 rounded-full mt-1 ${
+                        esVencido ? 'bg-red-50 text-red-700' : esEnCurso ? 'bg-yellow-50 text-brand-black border border-amber/15' : 'bg-neutral-50 text-gray-600'
+                      }`}>
+                        {esVencido ? "Vencida" : esEnCurso ? "Por vencer" : "Asignada"}
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           </div>
+
         </div>
-
-        {/* GRAFICA DISTRIBUCIÓN & PROXIMOS VENCIMIENTOS */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800 text-base">Estatus de Tareas</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-6 font-medium">Proporción general de las tareas preventivas asignadas en la instalación.</p>
-            
-            <div className="h-48 relative flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={75}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [`${value} tareas`, 'Cantidad']} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute text-center">
-                <span className="text-2xl font-extrabold text-neutral-700">{totalTareas}</span>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">Tareas</p>
-              </div>
-            </div>
-
-            <div className="space-y-2 mt-6">
-              {chartData.map((d, i) => (
-                <div key={i} className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-                    <span>{d.name}</span>
-                  </div>
-                  <span className="font-semibold text-neutral-700">{d.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* PROXIMOS MANTENIMIENTOS */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-[#2B2B2B] text-base">Próximos Vencimientos</h3>
-            <button onClick={() => onSetTab("calendario")} className="text-xs text-brand-green-dark hover:text-brand-green hover:underline font-bold transition">Calendario</button>
-          </div>
-          <p className="text-xs text-slate-400 mb-4 font-normal">Acciones preventivas prioritarias requeridas para sostener la habitabilidad.</p>
-          
-          <div className="space-y-3">
-            {proximosVencimientos.map(t => {
-              const esVencido = t.estado === "vencida";
-              const esEnCurso = t.estado === "en_curso";
-              return (
-                <button 
-                  key={t.id} 
-                  onClick={() => onSelectTarea(t)}
-                  className="w-full text-left p-3.5 rounded-xl border border-slate-100 hover:bg-slate-50 hover:border-slate-250 transition flex items-center justify-between group animate-fade-in"
-                >
-                  <div className="min-w-0 pr-2">
-                    <h4 className="text-xs font-bold text-[#2B2B2B] truncate group-hover:text-brand-green transition">{t.titulo}</h4>
-                    <span className="inline-block text-[10px] text-gray-400 mt-1 uppercase font-mono bg-neutral-50 px-2 py-0.5 rounded">
-                      {areas.find(a => a.id === t.area_id)?.nombre || t.area_id}
-                    </span>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="text-[10px] font-bold block text-gray-500">{t.proxima_fecha}</span>
-                    <span className={`text-[9px] font-bold inline-block px-1.5 py-0.5 rounded-full mt-1 ${
-                      esVencido ? 'bg-red-50 text-red-700' : esEnCurso ? 'bg-yellow-50 text-brand-black border border-amber/15' : 'bg-neutral-50 text-gray-600'
-                    }`}>
-                      {esVencido ? "Vencida" : esEnCurso ? "Por vencer" : "Asignada"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-      </div>
+      )}
 
       {/* GRÁFICO HISTÓRICO DE EJECUCIÓN MENSUAL */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
@@ -869,7 +1014,7 @@ export default function Dashboard({ tareas, areas, presupuestos, trazabilidad, o
             <Boxes size={20} />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-[#0A1B3D]">Iniciativa Kenzly & Innovarum Administraciones</h4>
+            <h4 className="text-sm font-bold text-[#0A1B3D]">Iniciativa Kenzly & Innovarum Technologies</h4>
             <p className="text-xs text-slate-500 font-normal">Desarrollo piloto liderado por Emmanuel y Adrián para resolver fallas reactivas en México y optimizar activos.</p>
           </div>
         </div>
