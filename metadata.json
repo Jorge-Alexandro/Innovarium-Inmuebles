@@ -1,6 +1,6 @@
 {
   "name": "Inovarium Inmuebles",
-  "description": "MVP de la plataforma SaaS para la gestión de mantenimiento preventivo de condominios.",
+  "description": "Plataforma SaaS para la gestión de mantenimiento de condominios con gemelo digital 3D BIM y capas de visualización IoT en tiempo real.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

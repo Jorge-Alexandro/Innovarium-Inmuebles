@@ -86,7 +86,7 @@ const classifyMeshSystem = (meshName: string, meshFloorIndex: number): string | 
     }
   }
 
-  if (name.includes("glass") || name.includes("window") || name.includes("ventana") || name.includes("cristal") || name.includes("vidrio") || name.includes("pane") || name.includes("light") || name.includes("foco") || name.includes("led") || name.includes("lampara") || name.includes("glow") || name.includes("refl") || name.includes("emit") || name.includes("glowing")) {
+  if (name.includes("light") || name.includes("foco") || name.includes("led") || name.includes("lampara") || name.includes("glow") || name.includes("refl") || name.includes("emit") || name.includes("glowing") || name.includes("ilumin")) {
     return "iluminacion";
   }
 
@@ -103,46 +103,22 @@ const splitSingleMeshIntoFloorSystems = (mesh: THREE.Mesh, bbox: THREE.Box3, siz
   const minY = bbox.min.y;
   const height = bbox.max.y - minY || 1;
 
-  // Buckets for 10 floors and 6 systems
+  // Buckets for 10 floors and structure only
   const buckets: { [key: string]: {
     positions: number[];
     normals: number[];
     uvs: number[];
   }} = {};
 
-  const systems = ["estructura", "elevadores", "iluminacion", "agua", "energia", "hvac"];
+  const systems = ["estructura"];
   for (let f = 0; f < 10; f++) {
     for (const sys of systems) {
       buckets[`${f}_${sys}`] = { positions: [], normals: [], uvs: [] };
     }
   }
 
-  // Helper to classify vertex positions into systems based on spatial coordinates
+  // Helper to classify all elements as base structure
   const getSystemType = (avgX: number, avgY: number, avgZ: number) => {
-    const distFromCenter = Math.sqrt(avgX * avgX + avgZ * avgZ);
-    const maxRadius = Math.max(size.x, size.z) / 2;
-
-    // Elevadores: core vertical lift column in the center
-    if (distFromCenter < maxRadius * 0.25) {
-      return "elevadores";
-    }
-    // Iluminacion: outer perimeter / facade glazing
-    if (distFromCenter > maxRadius * 0.72) {
-      return "iluminacion";
-    }
-    // Agua: narrow quadrant column for water systems
-    if (avgX < -maxRadius * 0.25 && Math.abs(avgZ) < maxRadius * 0.3) {
-      return "agua";
-    }
-    // Energia: quadrant column for electrical trays & risers
-    if (avgX > maxRadius * 0.25 && Math.abs(avgZ) < maxRadius * 0.3) {
-      return "energia";
-    }
-    // HVAC: quadrant column for mechanical supply & extraction ducts
-    if (avgZ > maxRadius * 0.25 && Math.abs(avgX) < maxRadius * 0.3) {
-      return "hvac";
-    }
-    
     return "estructura";
   };
 
@@ -271,50 +247,25 @@ const splitSingleMeshIntoFloorSystems = (mesh: THREE.Mesh, bbox: THREE.Box3, siz
       geom.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
       geom.setAttribute('uv', new THREE.Float32BufferAttribute(b.uvs, 2));
 
-      // Clone original material
-      let mat: THREE.Material;
-      if (isMultiMaterial) {
-        mat = (originalMat as THREE.Material[])[0].clone();
-      } else if (originalMat instanceof THREE.Material) {
-        mat = originalMat.clone();
-      } else {
-        mat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-      }
+      // Estructura: Elegant, clean, semi-transparent white architectural glass shell
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc, // Off-white
+        roughness: 0.75, // high roughness
+        metalness: 0.05, // low metalness
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: true
+      });
 
-      const anyMat = mat as any;
-      if (sys === "elevadores") {
-        anyMat.color.setHex(0xffffff); // White
-        if ('emissive' in anyMat) anyMat.emissive.setHex(0x333333);
-        anyMat.roughness = 0.2;
-        anyMat.metalness = 0.8;
-      } else if (sys === "agua") {
-        anyMat.color.setHex(0xffffff); // White
-        if ('emissive' in anyMat) anyMat.emissive.setHex(0x333333);
-        anyMat.roughness = 0.25;
-      } else if (sys === "energia") {
-        anyMat.color.setHex(0xffffff); // White
-        if ('emissive' in anyMat) anyMat.emissive.setHex(0x333333);
-        anyMat.roughness = 0.3;
-      } else if (sys === "hvac") {
-        anyMat.color.setHex(0xffffff); // White
-        if ('emissive' in anyMat) anyMat.emissive.setHex(0x333333);
-        anyMat.roughness = 0.4;
-      } else if (sys === "iluminacion") {
-        anyMat.color.setHex(0xffffff); // White
-        if ('emissive' in anyMat) anyMat.emissive.setHex(0x333333);
-        anyMat.transparent = true;
-        anyMat.opacity = 0.82;
-      } else {
-        // Estructura (Clean white shell)
-        anyMat.color.setHex(0xffffff);
-        anyMat.roughness = 0.8;
-        anyMat.metalness = 0.1;
+      // Preserve underlying baked texture maps if present in the GLTF
+      const baseMat = isMultiMaterial ? originalMat[0] : originalMat;
+      if (baseMat && (baseMat as any).map) {
+        mat.map = (baseMat as any).map;
       }
 
       const m = new THREE.Mesh(geom, mat);
       m.name = `floor_${f}_system_${sys}`;
       
-      // Assign custom userData so selection, highlights, and tooltips know what this is instantly
       m.userData = {
         floorIndex: f,
         system: sys
@@ -339,6 +290,18 @@ export default function EdificioIsometrico({
   // Active Systems & Occupancy glowing state
   const [activeSystemFilter, setActiveSystemFilter] = useState<string>("todos");
   const [systemGhostMode, setSystemGhostMode] = useState<boolean>(true);
+  const [showIotOverlays, setShowIotOverlays] = useState<boolean>(true);
+  
+  interface HoveredIotElement {
+    system: string;
+    floor: number;
+    name: string;
+    status: "Óptimo" | "Atención" | "Crítico";
+    reading: string;
+    x: number;
+    y: number;
+  }
+  const [hoveredIot, setHoveredIot] = useState<HoveredIotElement | null>(null);
   const activeSystemFilterRef = useRef<string>("todos");
 
   // 3D Engine State
@@ -362,6 +325,8 @@ export default function EdificioIsometrico({
   const modelRef = useRef<THREE.Group | null>(null);
   const floorHighlightRing = useRef<THREE.GridHelper | null>(null);
   const boundingBoxRef = useRef<THREE.Box3 | null>(null);
+  const iotOverlayGroupRef = useRef<THREE.Group | null>(null);
+  const buildingRootRef = useRef<THREE.Group | null>(null);
 
   // Original materials and positions for custom shaders, glowing highlights, and exploding
   const originalMaterials = useRef<Map<THREE.Mesh, {
@@ -478,18 +443,17 @@ export default function EdificioIsometrico({
 
   // camera presets
   const setCameraView = (type: "iso" | "top" | "front") => {
-    if (!cameraRef.current || !controlsRef.current || !boundingBoxRef.current) return;
-    const center = new THREE.Vector3();
-    boundingBoxRef.current.getCenter(center);
-    const size = new THREE.Vector3();
-    boundingBoxRef.current.getSize(size);
+    if (!cameraRef.current || !controlsRef.current || !buildingRootRef.current) return;
+    const rootBox = new THREE.Box3().setFromObject(buildingRootRef.current);
+    const center = rootBox.getCenter(new THREE.Vector3());
+    const size = rootBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
 
     controlsRef.current.target.copy(center);
 
     switch (type) {
       case "iso":
-        cameraRef.current.position.set(center.x + maxDim * 1.2, center.y + maxDim * 1.0, center.z + maxDim * 1.2);
+        cameraRef.current.position.set(center.x + maxDim * 1.1, center.y + maxDim * 0.8, center.z + maxDim * 1.1);
         break;
       case "top":
         cameraRef.current.position.set(center.x, center.y + maxDim * 1.8, center.z);
@@ -515,6 +479,7 @@ export default function EdificioIsometrico({
 
     // Position of horizontal grid selector
     if (floorHighlightRing.current) {
+      floorHighlightRing.current.visible = (visualMode !== "realista");
       const targetY = minY + (selIndex + 0.5) * (height / 10);
       floorHighlightRing.current.position.y = targetY + (selIndex * explodeValue * 2.0);
       
@@ -551,141 +516,145 @@ export default function EdificioIsometrico({
             const isSelectedMesh = meshFloorIndex === selIndex;
             const isHoveredMesh = hovIndex !== null && meshFloorIndex === hovIndex;
 
-            const floorStatusStr = floorStatuses[9 - meshFloorIndex]?.worstStatus || "al_dia";
-            const statusColor = new THREE.Color(getStatusConfig(floorStatusStr).glowColor);
-
             // Classify system using specialized userData or fallback naming
-            const meshSystem = child.userData.system !== undefined
+            let meshSystem = child.userData.system !== undefined
               ? child.userData.system
               : classifyMeshSystem(child.name, meshFloorIndex);
-            const matchesActiveSystem = activeSystemFilter !== "ninguno" && 
-              (activeSystemFilter === "todos" || meshSystem === activeSystemFilter);
 
-            if (activeSystemFilter !== "ninguno" && systemGhostMode) {
-              // GHOST MODE: Make active system elements stand out, make everything else translucent
-              if (matchesActiveSystem) {
-                if ('wireframe' in anyMat) anyMat.wireframe = false;
-                anyMat.transparent = false;
-                anyMat.opacity = 1.0;
+            if (!meshSystem) {
+              meshSystem = "estructura";
+            }
 
-                let sysColor = 0xffffff;
-                if (meshSystem === "iluminacion") sysColor = 0xffffff; // white
-                else if (meshSystem === "agua") sysColor = 0xffffff; // white
-                else if (meshSystem === "energia") sysColor = 0xffffff; // white
-                else if (meshSystem === "hvac") sysColor = 0xffffff; // white
-                else if (meshSystem === "elevadores") sysColor = 0xffffff; // white
+            if (meshSystem === "estructura") {
+              if ('wireframe' in anyMat) anyMat.wireframe = visualMode === "wireframe";
+              
+              const isGhostActive = systemGhostMode && activeSystemFilter !== "ninguno";
 
-                if ('color' in anyMat) anyMat.color.setHex(sysColor);
-                if ('emissive' in anyMat) {
-                  anyMat.emissive.setHex(sysColor);
-                  anyMat.emissiveIntensity = 0.85;
-                }
-              } else {
-                // Highly translucent ghost background
-                if ('wireframe' in anyMat) anyMat.wireframe = visualMode === "wireframe";
-                anyMat.transparent = true;
-                anyMat.opacity = visualMode === "wireframe" ? 0.05 : 0.06;
-                if ('color' in anyMat) anyMat.color.setHex(isDarkMode ? 0x334155 : 0x94a3b8);
-                if ('emissive' in anyMat) {
-                  anyMat.emissive.setHex(0x000000);
-                  anyMat.emissiveIntensity = 0.0;
-                }
-              }
-            } else {
-              // STANDARD SHADER VIEWS (with optional highlighted system items)
-              if (activeSystemFilter !== "ninguno" && matchesActiveSystem) {
-                // Highlight system elements on top of the realistic / xray / wireframe rendering
-                if ('wireframe' in anyMat) anyMat.wireframe = visualMode === "wireframe";
-                anyMat.transparent = false;
-                anyMat.opacity = 1.0;
-
-                let sysColor = 0xffffff;
-                if (meshSystem === "iluminacion") sysColor = 0xffffff;
-                else if (meshSystem === "agua") sysColor = 0xffffff;
-                else if (meshSystem === "energia") sysColor = 0xffffff;
-                else if (meshSystem === "hvac") sysColor = 0xffffff;
-                else if (meshSystem === "elevadores") sysColor = 0xffffff;
-
-                if ('color' in anyMat) anyMat.color.setHex(sysColor);
-                if ('emissive' in anyMat) {
-                  anyMat.emissive.setHex(sysColor);
-                  anyMat.emissiveIntensity = 0.75;
-                }
-              } else {
-                // standard render mode
-                if (visualMode === "realista") {
-                  if ('wireframe' in anyMat) anyMat.wireframe = false;
-                  anyMat.transparent = origMat.transparent;
-                  anyMat.opacity = origMat.opacity;
-                  if ('color' in anyMat) anyMat.color.copy(origMat.color);
-
-                  if ('emissive' in anyMat) {
-                    if (isSelectedMesh) {
-                      anyMat.emissive.copy(statusColor);
-                      anyMat.emissiveIntensity = 0.55;
-                    } else if (isHoveredMesh) {
-                      anyMat.emissive.copy(statusColor);
-                      anyMat.emissiveIntensity = 0.35;
-                    } else {
-                      anyMat.emissive.copy(origMat.emissive);
-                      anyMat.emissiveIntensity = 1.0;
-                    }
-                  }
-
-                } else if (visualMode === "xray") {
-                  if ('wireframe' in anyMat) anyMat.wireframe = false;
-                  if (isSelectedMesh) {
-                    if ('color' in anyMat) anyMat.color.copy(statusColor);
-                    if ('emissive' in anyMat) {
-                      anyMat.emissive.copy(statusColor);
-                      anyMat.emissiveIntensity = 0.8;
-                    }
-                    anyMat.transparent = false;
-                    anyMat.opacity = 1.0;
-                  } else if (isHoveredMesh) {
-                    if ('color' in anyMat) anyMat.color.copy(statusColor);
-                    if ('emissive' in anyMat) {
-                      anyMat.emissive.copy(statusColor).multiplyScalar(0.5);
-                      anyMat.emissiveIntensity = 0.5;
-                    }
-                    anyMat.transparent = true;
-                    anyMat.opacity = 0.5;
-                  } else {
-                    // Ghostly blueprints blue
-                    if ('color' in anyMat) anyMat.color.setHex(0x0e7490);
-                    if ('emissive' in anyMat) {
-                      anyMat.emissive.setHex(0x022c22);
-                      anyMat.emissiveIntensity = 0.1;
-                    }
-                    anyMat.transparent = true;
-                    anyMat.opacity = 0.12;
-                  }
-
-                } else if (visualMode === "wireframe") {
-                  if ('wireframe' in anyMat) anyMat.wireframe = true;
+              if (visualMode === "realista") {
+                if (isGhostActive) {
+                  // Ghost effect activated for building
                   anyMat.transparent = true;
+                  anyMat.opacity = 0.28;
+                  anyMat.depthWrite = false;
                   
-                  if (isSelectedMesh) {
-                    if ('color' in anyMat) anyMat.color.copy(statusColor);
-                    if ('emissive' in anyMat) {
-                      anyMat.emissive.copy(statusColor);
-                      anyMat.emissiveIntensity = 0.9;
-                    }
-                    anyMat.opacity = 1.0;
-                  } else if (isHoveredMesh) {
-                    if ('color' in anyMat) anyMat.color.copy(statusColor);
-                    if ('emissive' in anyMat) {
-                      anyMat.emissive.copy(statusColor).multiplyScalar(0.5);
-                      anyMat.emissiveIntensity = 0.5;
-                    }
-                    anyMat.opacity = 0.7;
+                  // Restore original color/map but keep it transparent
+                  if (origMat) {
+                    if (origMat.color && 'color' in anyMat) anyMat.color.copy(origMat.color);
+                    if (origMat.map && 'map' in anyMat) anyMat.map = origMat.map;
                   } else {
-                    if ('color' in anyMat) anyMat.color.setHex(isDarkMode ? 0x334155 : 0xcbd5e1);
+                    if ('color' in anyMat) anyMat.color.setHex(0xf8fafc);
+                  }
+                } else {
+                  // Ghost effect deactivated: solid building
+                  const nameLower = child.name.toLowerCase();
+                  const isGlass = nameLower.includes("glass") || 
+                                  nameLower.includes("vidrio") || 
+                                  nameLower.includes("cristal") || 
+                                  nameLower.includes("window") || 
+                                  nameLower.includes("ventana") || 
+                                  nameLower.includes("transpar") ||
+                                  (origMat && origMat.transparent);
+
+                  if (isGlass) {
+                    // Authentic glass: opacity between 0.35 and 0.55, transparent true, depthWrite false
+                    anyMat.transparent = true;
+                    anyMat.opacity = 0.45;
+                    anyMat.depthWrite = false;
+                  } else {
+                    // Structural materials: opacity 0.92, transparent false, depthWrite true
+                    anyMat.transparent = false;
+                    anyMat.opacity = 0.92;
+                    anyMat.depthWrite = true;
+                    if ('roughness' in anyMat) anyMat.roughness = 0.7;
+                    if ('metalness' in anyMat) anyMat.metalness = 0.05;
+                  }
+
+                  // Restore original materials, maps, and textures
+                  if (origMat) {
+                    if (origMat.color && 'color' in anyMat) anyMat.color.copy(origMat.color);
+                    if (origMat.map && 'map' in anyMat) anyMat.map = origMat.map;
+                  } else {
+                    if ('color' in anyMat) anyMat.color.setHex(0xf8fafc);
+                  }
+                }
+              } else {
+                // xray or wireframe styles (always transparent)
+                anyMat.transparent = true;
+                if (visualMode === "wireframe") {
+                  anyMat.opacity = isSelectedMesh ? 0.8 : (isHoveredMesh ? 0.5 : 0.2);
+                  if ('color' in anyMat) anyMat.color.setHex(isDarkMode ? 0x475569 : 0xcbd5e1);
+                } else {
+                  anyMat.opacity = isSelectedMesh ? 0.65 : (isHoveredMesh ? 0.55 : 0.45);
+                  if ('color' in anyMat) anyMat.color.setHex(0xf8fafc);
+                  if (origMat && origMat.map) {
+                    anyMat.map = origMat.map;
+                  }
+                }
+                if ('roughness' in anyMat) anyMat.roughness = 0.75;
+                if ('metalness' in anyMat) anyMat.metalness = 0.05;
+                if ('depthWrite' in anyMat) anyMat.depthWrite = true;
+              }
+
+              if ('emissive' in anyMat) {
+                anyMat.emissive.setHex(0x000000);
+                anyMat.emissiveIntensity = 0.0;
+              }
+              child.visible = true;
+
+            } else {
+              // IoT Overlay system components
+              if (!showIotOverlays) {
+                anyMat.transparent = true;
+                anyMat.opacity = 0.0;
+                child.visible = false;
+              } else {
+                const isActualSystem = ["iluminacion", "agua", "energia", "hvac", "elevadores"].includes(meshSystem);
+                const matchesActiveSystem = activeSystemFilter !== "ninguno" && 
+                  (activeSystemFilter === "todos" ? isActualSystem : meshSystem === activeSystemFilter);
+
+                if (activeSystemFilter !== "ninguno" && matchesActiveSystem) {
+                  // If ghost mode is active and we're isolating a single system (not "todos")
+                  const isIsolatingSingleSystem = systemGhostMode && activeSystemFilter !== "todos";
+                  const baseOpacity = isIsolatingSingleSystem ? 0.95 : (activeSystemFilter === "todos" ? 0.35 : 0.90);
+                  
+                  // Dim overlays on non-selected floors to guide focus to the selected floor
+                  const floorDimmFactor = isSelectedMesh ? 1.0 : 0.35;
+                  anyMat.transparent = true;
+                  anyMat.opacity = baseOpacity * floorDimmFactor;
+                  
+                  // Make selected floor overlays glow even more
+                  const emissiveMultiplier = isSelectedMesh ? 1.5 : 0.6;
+                  
+                  let sysColor = 0xffffff;
+                  if (meshSystem === "iluminacion") sysColor = 0xfacc15; // Yellow
+                  else if (meshSystem === "agua") sysColor = 0x06b6d4; // Cyan
+                  else if (meshSystem === "energia") sysColor = 0xf97316; // Orange
+                  else if (meshSystem === "hvac") sysColor = 0xef4444; // Red-Orange
+                  else if (meshSystem === "elevadores") sysColor = 0x8b5cf6; // Purple
+
+                  if ('color' in anyMat) anyMat.color.setHex(sysColor);
+                  if ('emissive' in anyMat) {
+                    anyMat.emissive.setHex(sysColor);
+                    anyMat.emissiveIntensity = (meshSystem === "iluminacion" ? 1.2 : 0.8) * emissiveMultiplier;
+                  }
+                  
+                  if ('wireframe' in anyMat) anyMat.wireframe = visualMode === "wireframe";
+                  child.visible = true;
+                } else {
+                  // Inactive system or "ninguno". Hide or make faint in ghost mode (opacity 0.08)
+                  if (systemGhostMode && activeSystemFilter !== "ninguno") {
+                    anyMat.transparent = true;
+                    anyMat.opacity = 0.08;
+                    if ('color' in anyMat) anyMat.color.setHex(0x555555);
                     if ('emissive' in anyMat) {
                       anyMat.emissive.setHex(0x000000);
                       anyMat.emissiveIntensity = 0.0;
                     }
-                    anyMat.opacity = 0.25;
+                    child.visible = true;
+                  } else {
+                    anyMat.transparent = true;
+                    anyMat.opacity = 0.0;
+                    child.visible = false;
                   }
                 }
               }
@@ -699,7 +668,7 @@ export default function EdificioIsometrico({
   // Run Highlights & Offset updates when properties change
   useEffect(() => {
     applyHighlightsAndOffsets();
-  }, [selectedPisoId, hoveredPisoId, explodeValue, visualMode, isDarkMode, floorStatuses, activeSystemFilter, systemGhostMode]);
+  }, [selectedPisoId, hoveredPisoId, explodeValue, visualMode, isDarkMode, floorStatuses, activeSystemFilter, systemGhostMode, showIotOverlays]);
 
   // Sync ref to avoid rebuilding Three loop
   useEffect(() => {
@@ -713,6 +682,7 @@ export default function EdificioIsometrico({
     let animationFrameId: number;
     let resizeObserver: ResizeObserver;
     let onCanvasClick: (event: MouseEvent) => void;
+    let onCanvasMouseMove: (event: MouseEvent) => void;
 
     try {
       // 1. Create Scene
@@ -750,7 +720,7 @@ export default function EdificioIsometrico({
     scene.add(dirLight);
 
     // Subtle fill point lights
-    const pointLight1 = new THREE.PointLight(0xb45309, 0.4, 30);
+    const pointLight1 = new THREE.PointLight(0xffffff, 0.4, 30);
     pointLight1.position.set(-10, 5, -10);
     scene.add(pointLight1);
 
@@ -808,32 +778,368 @@ export default function EdificioIsometrico({
           }
         }
 
-        modelRef.current = model;
+        // 1. Crea un único grupo raíz campusRoot, architectureRoot e iotRoot:
+        const campusRoot = new THREE.Group();
+        campusRoot.name = "campusRoot";
+        buildingRootRef.current = campusRoot;
+        modelRef.current = campusRoot;
 
-        // Auto calculate bounding box to dynamically scale and center camera
-        const bbox = new THREE.Box3().setFromObject(model);
-        boundingBoxRef.current = bbox;
-        const center = new THREE.Vector3();
-        bbox.getCenter(center);
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
+        const architectureRoot = new THREE.Group();
+        architectureRoot.name = "architectureRoot";
 
-        // Shift model so its ground sits near Y=0
-        model.position.y = -bbox.min.y;
-        bbox.translate(new THREE.Vector3(0, -bbox.min.y, 0));
+        const iotRoot = new THREE.Group();
+        iotRoot.name = "iotRoot";
+        iotOverlayGroupRef.current = iotRoot;
 
-        // Center on X and Z axes
-        model.position.x = -center.x;
-        model.position.z = -center.z;
-        bbox.translate(new THREE.Vector3(-center.x, 0, -center.z));
+        campusRoot.add(architectureRoot);
+        campusRoot.add(iotRoot);
+        architectureRoot.add(model);
+        scene.add(campusRoot);
 
-        scene.add(model);
+        // 3. Calcula primero el bounding box del modelo GLB:
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // 4. Centra el modelo en su propio grupo:
+        model.position.sub(center);
+
+        // 5. Normaliza todo campusRoot usando como altura objetivo 18 unidades:
+        const targetHeight = 18;
+        const uniformScale = targetHeight / size.y;
+        campusRoot.scale.setScalar(uniformScale);
+
+        // Update matrix world to ensure correct vertex calculations
+        architectureRoot.updateMatrixWorld(true);
+
+        // 4. Crea un segundo bounding box llamado towerBounds exclusivamente para la torre vertical (excluyendo la plaza inferior):
+        const totalBounds = new THREE.Box3().setFromObject(architectureRoot);
+        const totalSize = totalBounds.getSize(new THREE.Vector3());
+        const towerCutY = totalBounds.min.y + totalSize.y * 0.15; // 15% filter threshold
+
+        const towerBounds = new THREE.Box3();
+        architectureRoot.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const geom = child.geometry;
+            if (geom) {
+              child.updateMatrixWorld(true);
+              const matrix = child.matrixWorld;
+              const positionAttr = geom.attributes.position;
+              if (positionAttr) {
+                const tempV = new THREE.Vector3();
+                for (let i = 0; i < positionAttr.count; i++) {
+                  tempV.fromBufferAttribute(positionAttr, i);
+                  tempV.applyMatrix4(matrix); // Transform to architectureRoot local space (unscaled)
+                  if (tempV.y >= towerCutY) {
+                    towerBounds.expandByPoint(tempV);
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // Fallback to totalBounds if towerBounds is empty
+        if (towerBounds.isEmpty()) {
+          towerBounds.copy(totalBounds);
+        }
+
+        const towerSize = towerBounds.getSize(new THREE.Vector3());
+        const towerCenter = towerBounds.getCenter(new THREE.Vector3());
+
+        // Define bounding box ref based on tower bounds
+        boundingBoxRef.current = towerBounds;
+
+        // 10. Aplica la calibración de sistemas IoT únicamente a iotRoot o sus dimensiones relativas:
+        const IOT_CALIBRATION = {
+          offsetX: 0,
+          offsetY: 0,
+          offsetZ: 0,
+          widthFactor: 0.82,
+          depthFactor: 0.78,
+          bottomFactor: 0.08,
+          topFactor: 0.97
+        };
+
+        const calWidth = towerSize.x * IOT_CALIBRATION.widthFactor;
+        const calDepth = towerSize.z * IOT_CALIBRATION.depthFactor;
+        const calMinY = towerBounds.min.y + towerSize.y * IOT_CALIBRATION.bottomFactor;
+        const calMaxY = towerBounds.min.y + towerSize.y * IOT_CALIBRATION.topFactor;
+        const calHeight = calMaxY - calMinY;
+        const calFloorHeight = calHeight / 10;
+
+        const calCenter = new THREE.Vector3(
+          towerCenter.x + IOT_CALIBRATION.offsetX,
+          (calMinY + calMaxY) / 2,
+          towerCenter.z + IOT_CALIBRATION.offsetZ
+        );
+
+        // Genera los overlays DESPUÉS de obtener el bounding box de la torre y calibración:
+        const totalNiveles = 10;
+        for (let f = 0; f < totalNiveles; f++) {
+          const floorGroup = new THREE.Group();
+          floorGroup.name = `floor_overlay_${f}`;
+          
+          // Position relative to campusRoot (unscaled coordinates)
+          const floorY = calMinY + ((f + 0.5) / totalNiveles) * calHeight;
+          floorGroup.position.set(calCenter.x, floorY, calCenter.z);
+
+          // 1. Iluminación (Yellow #facc15): 4 small ceiling spheres per floor (max 80% width/depth)
+          const lightingGroup = new THREE.Group();
+          lightingGroup.name = "lightingGroup";
+          const lightMat = new THREE.MeshStandardMaterial({
+            color: 0xfacc15,
+            emissive: 0xfacc15,
+            emissiveIntensity: 1.5,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.2,
+            metalness: 0.1
+          });
+          const sphereRadius = calFloorHeight * 0.08;
+          const lightGeom = new THREE.SphereGeometry(sphereRadius, 12, 12);
+          const lx = calWidth * 0.35;
+          const lz = calDepth * 0.35;
+          const ly = calFloorHeight * 0.4;
+          const lightPositions = [
+            [-lx, ly, -lz],
+            [-lx, ly, lz],
+            [lx, ly, -lz],
+            [lx, ly, lz]
+          ];
+          lightPositions.forEach((pos, idx) => {
+            const lightMesh = new THREE.Mesh(lightGeom, lightMat.clone());
+            lightMesh.position.set(pos[0], pos[1], pos[2]);
+            lightMesh.name = `lighting_fixture_${f}_${idx}`;
+            lightMesh.userData = { system: "iluminacion", floorIndex: f };
+            lightingGroup.add(lightMesh);
+          });
+          floorGroup.add(lightingGroup);
+
+          // 2. Agua (Cyan #06b6d4): Vertical tube, horizontal loops, cistern/tanks inside tower bounds
+          const waterGroup = new THREE.Group();
+          waterGroup.name = "waterGroup";
+          const waterPipeMat = new THREE.MeshStandardMaterial({
+            color: 0x06b6d4,
+            emissive: 0x06b6d4,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.1,
+            metalness: 0.8
+          });
+          
+          // Main vertical water riser (offset from core)
+          const waterX = -calWidth * 0.22;
+          const waterZ = -calDepth * 0.22;
+          const waterRiserRadius = calWidth * 0.008;
+          const waterRiserGeom = new THREE.CylinderGeometry(waterRiserRadius, waterRiserRadius, calFloorHeight, 8);
+          const waterRiser = new THREE.Mesh(waterRiserGeom, waterPipeMat.clone());
+          waterRiser.position.set(waterX, 0, waterZ);
+          waterRiser.name = `water_riser_${f}`;
+          waterRiser.userData = { system: "agua", floorIndex: f };
+          waterGroup.add(waterRiser);
+
+          // Horizontal water pipelines looping around the floor
+          const waterH1Geom = new THREE.BoxGeometry(calWidth * 0.55, calFloorHeight * 0.03, calDepth * 0.015);
+          const waterH1 = new THREE.Mesh(waterH1Geom, waterPipeMat.clone());
+          waterH1.position.set(-calWidth * 0.05, -calFloorHeight * 0.35, waterZ);
+          waterH1.name = `water_h1_${f}`;
+          waterH1.userData = { system: "agua", floorIndex: f };
+          waterGroup.add(waterH1);
+
+          const waterH2Geom = new THREE.BoxGeometry(calWidth * 0.015, calFloorHeight * 0.03, calDepth * 0.55);
+          const waterH2 = new THREE.Mesh(waterH2Geom, waterPipeMat.clone());
+          waterH2.position.set(waterX, -calFloorHeight * 0.35, -calDepth * 0.05);
+          waterH2.name = `water_h2_${f}`;
+          waterH2.userData = { system: "agua", floorIndex: f };
+          waterGroup.add(waterH2);
+
+          // Cistern / Water Tanks (independent from base platform)
+          if (f === 0) {
+            // Large ground water cistern inside tower bounds
+            const tankGeom = new THREE.BoxGeometry(calWidth * 0.35, calFloorHeight * 0.5, calDepth * 0.35);
+            const tankMesh = new THREE.Mesh(tankGeom, waterPipeMat.clone());
+            tankMesh.position.set(waterX, -calFloorHeight * 0.25, -waterZ);
+            tankMesh.name = `water_cistern`;
+            tankMesh.userData = { system: "agua", floorIndex: f };
+            waterGroup.add(tankMesh);
+          } else if (f === 9) {
+            // Rooftop reserve water tank
+            const tankGeom = new THREE.CylinderGeometry(calWidth * 0.15, calWidth * 0.15, calFloorHeight * 0.6, 16);
+            const tankMesh = new THREE.Mesh(tankGeom, waterPipeMat.clone());
+            tankMesh.position.set(waterX, calFloorHeight * 0.3, waterZ);
+            tankMesh.name = `water_roof_tank`;
+            tankMesh.userData = { system: "agua", floorIndex: f };
+            waterGroup.add(tankMesh);
+          }
+          floorGroup.add(waterGroup);
+
+          // 3. Energía (Orange #f97316): Vertical trunk inside structural core, panel box, horizontal conduits
+          const energyGroup = new THREE.Group();
+          energyGroup.name = "energyGroup";
+          const energyMat = new THREE.MeshStandardMaterial({
+            color: 0xf97316,
+            emissive: 0xf97316,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.2,
+            metalness: 0.7
+          });
+          
+          // Main vertical energy riser (inside structural core)
+          const energyX = calWidth * 0.15;
+          const energyZ = calDepth * 0.15;
+          const energyRiserRadius = calWidth * 0.006;
+          const energyRiserGeom = new THREE.CylinderGeometry(energyRiserRadius, energyRiserRadius, calFloorHeight, 8);
+          const energyRiser = new THREE.Mesh(energyRiserGeom, energyMat.clone());
+          energyRiser.position.set(energyX, 0, energyZ);
+          energyRiser.name = `energy_riser_${f}`;
+          energyRiser.userData = { system: "energia", floorIndex: f };
+          energyGroup.add(energyRiser);
+
+          // Symmetrical horizontal power conduits
+          const energyH1Geom = new THREE.BoxGeometry(calWidth * 0.5, calFloorHeight * 0.018, calDepth * 0.01);
+          const energyH1 = new THREE.Mesh(energyH1Geom, energyMat.clone());
+          energyH1.position.set(calWidth * 0.1, calFloorHeight * 0.35, energyZ);
+          energyH1.name = `energy_h1_${f}`;
+          energyH1.userData = { system: "energia", floorIndex: f };
+          energyGroup.add(energyH1);
+
+          const energyH2Geom = new THREE.BoxGeometry(calWidth * 0.01, calFloorHeight * 0.018, calDepth * 0.5);
+          const energyH2 = new THREE.Mesh(energyH2Geom, energyMat.clone());
+          energyH2.position.set(energyX, calFloorHeight * 0.35, calDepth * 0.1);
+          energyH2.name = `energy_h2_${f}`;
+          energyH2.userData = { system: "energia", floorIndex: f };
+          energyGroup.add(energyH2);
+
+          // Smart Electrical Panel Box on each floor
+          const panelGeom = new THREE.BoxGeometry(calWidth * 0.04, calFloorHeight * 0.3, calDepth * 0.02);
+          const panelMesh = new THREE.Mesh(panelGeom, energyMat.clone());
+          panelMesh.position.set(energyX, 0, energyZ * 0.9);
+          panelMesh.name = `energy_panel_${f}`;
+          panelMesh.userData = { system: "energia", floorIndex: f };
+          energyGroup.add(panelMesh);
+          floorGroup.add(energyGroup);
+
+          // 4. Climas/HVAC (Red/Orange #ef4444): Symmetrical vertical shafts, horizontal ceiling ducts, rooftop units
+          const hvacGroup = new THREE.Group();
+          hvacGroup.name = "hvacGroup";
+          const hvacMat = new THREE.MeshStandardMaterial({
+            color: 0xef4444,
+            emissive: 0xef4444,
+            emissiveIntensity: 1.1,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.3,
+            metalness: 0.5
+          });
+          
+          // Symmetrical vertical ventilation ducts
+          const hvacX = calWidth * 0.2;
+          const hvacZ = calDepth * 0.2;
+          const hvacRiserWidth = calWidth * 0.02;
+          const hvacR1Geom = new THREE.BoxGeometry(hvacRiserWidth, calFloorHeight, hvacRiserWidth);
+          const hvacR1 = new THREE.Mesh(hvacR1Geom, hvacMat.clone());
+          hvacR1.position.set(hvacX, 0, -hvacZ);
+          hvacR1.name = `hvac_riser_1_${f}`;
+          hvacR1.userData = { system: "hvac", floorIndex: f };
+          hvacGroup.add(hvacR1);
+
+          const hvacR2Geom = new THREE.BoxGeometry(hvacRiserWidth, calFloorHeight, hvacRiserWidth);
+          const hvacR2 = new THREE.Mesh(hvacR2Geom, hvacMat.clone());
+          hvacR2.position.set(-hvacX, 0, hvacZ);
+          hvacR2.name = `hvac_riser_2_${f}`;
+          hvacR2.userData = { system: "hvac", floorIndex: f };
+          hvacGroup.add(hvacR2);
+
+          // Horizontal main ceiling air ducts (strictly inside the plants, never outside facade)
+          const hvacH1Geom = new THREE.BoxGeometry(calWidth * 0.7, calFloorHeight * 0.05, calDepth * 0.03);
+          const hvacH1 = new THREE.Mesh(hvacH1Geom, hvacMat.clone());
+          hvacH1.position.set(0, calFloorHeight * 0.35, 0);
+          hvacH1.name = `hvac_h1_${f}`;
+          hvacH1.userData = { system: "hvac", floorIndex: f };
+          hvacGroup.add(hvacH1);
+
+          const hvacH2Geom = new THREE.BoxGeometry(calWidth * 0.03, calFloorHeight * 0.05, calDepth * 0.7);
+          const hvacH2 = new THREE.Mesh(hvacH2Geom, hvacMat.clone());
+          hvacH2.position.set(0, calFloorHeight * 0.35, 0);
+          hvacH2.name = `hvac_h2_${f}`;
+          hvacH2.userData = { system: "hvac", floorIndex: f };
+          hvacGroup.add(hvacH2);
+
+          // Mechanical Units / Chillers on the roof (Floor 9) - roofBounds independent zone
+          if (f === 9) {
+            const chillerGeom = new THREE.BoxGeometry(calWidth * 0.2, calFloorHeight * 0.5, calDepth * 0.15);
+            const chiller1 = new THREE.Mesh(chillerGeom, hvacMat.clone());
+            chiller1.position.set(calWidth * 0.2, calFloorHeight * 0.55, -calDepth * 0.2);
+            chiller1.name = `hvac_chiller_1`;
+            chiller1.userData = { system: "hvac", floorIndex: f };
+            hvacGroup.add(chiller1);
+
+            const chiller2 = new THREE.Mesh(chillerGeom, hvacMat.clone());
+            chiller2.position.set(calWidth * 0.2, calFloorHeight * 0.55, calDepth * 0.2);
+            chiller2.name = `hvac_chiller_2`;
+            chiller2.userData = { system: "hvac", floorIndex: f };
+            hvacGroup.add(chiller2);
+          }
+          floorGroup.add(hvacGroup);
+
+          // 5. Elevadores (Violet #8b5cf6): Symmetrical vertical lift column guides inside lateral cores
+          const elevatorsGroup = new THREE.Group();
+          elevatorsGroup.name = "elevatorsGroup";
+          const elevatorMat = new THREE.MeshStandardMaterial({
+            color: 0x8b5cf6,
+            emissive: 0x8b5cf6,
+            emissiveIntensity: 1.2,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.15,
+            metalness: 0.9
+          });
+          const liftX = calWidth * 0.44; // lateral core placement
+          const liftRailWidth = calWidth * 0.02;
+          const liftRailGeom = new THREE.BoxGeometry(liftRailWidth, calFloorHeight, liftRailWidth);
+          
+          const leftRail = new THREE.Mesh(liftRailGeom, elevatorMat.clone());
+          leftRail.position.set(-liftX, 0, 0);
+          leftRail.name = `lift_rail_left_${f}`;
+          leftRail.userData = { system: "elevadores", floorIndex: f };
+          elevatorsGroup.add(leftRail);
+
+          const rightRail = new THREE.Mesh(liftRailGeom, elevatorMat.clone());
+          rightRail.position.set(liftX, 0, 0);
+          rightRail.name = `lift_rail_right_${f}`;
+          rightRail.userData = { system: "elevadores", floorIndex: f };
+          elevatorsGroup.add(rightRail);
+
+          // Moving/glowing elevator cabins
+          if (f === 2) {
+            const cabinGeom = new THREE.BoxGeometry(calWidth * 0.095, calFloorHeight * 0.75, calDepth * 0.095);
+            const cabinMesh = new THREE.Mesh(cabinGeom, elevatorMat.clone());
+            cabinMesh.position.set(-liftX, 0, 0);
+            cabinMesh.name = `lift_cabin_left_${f}`;
+            cabinMesh.userData = { system: "elevadores", floorIndex: f };
+            elevatorsGroup.add(cabinMesh);
+          } else if (f === 7) {
+            const cabinGeom = new THREE.BoxGeometry(calWidth * 0.095, calFloorHeight * 0.75, calDepth * 0.095);
+            const cabinMesh = new THREE.Mesh(cabinGeom, elevatorMat.clone());
+            cabinMesh.position.set(liftX, 0, 0);
+            cabinMesh.name = `lift_cabin_right_${f}`;
+            cabinMesh.userData = { system: "elevadores", floorIndex: f };
+            elevatorsGroup.add(cabinMesh);
+          }
+          floorGroup.add(elevatorsGroup);
+
+          iotRoot.add(floorGroup);
+        }
 
         // Record original materials & positions, enabling customized floor highlighting
         originalMaterials.current.clear();
         originalPositions.current.clear();
 
-        model.traverse((child) => {
+        campusRoot.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.castShadow = true;
             child.receiveShadow = true;
@@ -863,26 +1169,42 @@ export default function EdificioIsometrico({
           }
         });
 
-        // Recalculate bounding box with final positions
-        const adjustedBBox = new THREE.Box3().setFromObject(model);
-        boundingBoxRef.current = adjustedBBox;
+        // 7. Genera un THREE.Box3Helper de color magenta alrededor de la torre vertical (oculto en producción):
+        const DEBUG_IOT_BOUNDS = false;
+        if (DEBUG_IOT_BOUNDS) {
+          const helper = new THREE.Box3Helper(towerBounds, 0xff00ff);
+          helper.name = "towerBoxHelper";
+          helper.visible = true; // Keep visible for verification
+          campusRoot.add(helper);
+        }
 
-        const adjCenter = new THREE.Vector3();
-        adjustedBBox.getCenter(adjCenter);
-        const adjSize = new THREE.Vector3();
-        adjustedBBox.getSize(adjSize);
-
-        // 8. Dynamic Glowing Level Bracket Indicator (Grid Selector)
-        const diameter = Math.max(adjSize.x, adjSize.z) * 1.35;
+        // 8. Dynamic Glowing Level Bracket Indicator (Grid Selector / Technical Grid)
+        const diameter = Math.max(towerSize.x, towerSize.z) * 1.15;
         const ring = new THREE.GridHelper(diameter, 16, 0x10b981, 0x10b981);
-        ring.position.set(0, adjCenter.y, 0);
-        scene.add(ring);
+        ring.name = "floorHighlightRing";
+        
+        // Center of the bottom floor in unscaled coords is at calMinY + (calFloorHeight / 2)
+        const initialY = calMinY + (0.5 / 10) * calHeight;
+        ring.position.set(calCenter.x, initialY, calCenter.z);
+        
+        // Hide in realistic mode by default
+        ring.visible = (visualMode !== "realista");
+        
+        campusRoot.add(ring);
         floorHighlightRing.current = ring;
 
-        // Position camera perfectly centered
-        controls.target.copy(adjCenter);
-        const maxDim = Math.max(adjSize.x, adjSize.y, adjSize.z);
-        camera.position.set(adjCenter.x + maxDim * 1.1, adjCenter.y + maxDim * 0.8, adjCenter.z + maxDim * 1.1);
+        // Position camera perfectly centered using final bounding box of campusRoot
+        const rootBox = new THREE.Box3().setFromObject(campusRoot);
+        const rootCenter = rootBox.getCenter(new THREE.Vector3());
+        const rootSize = rootBox.getSize(new THREE.Vector3());
+        
+        controls.target.copy(rootCenter);
+        const maxDim = Math.max(rootSize.x, rootSize.y, rootSize.z);
+        camera.position.set(
+          rootCenter.x + maxDim * 1.1,
+          rootCenter.y + maxDim * 0.8,
+          rootCenter.z + maxDim * 1.1
+        );
         controls.update();
 
         setIsLoading(false);
@@ -910,120 +1232,161 @@ export default function EdificioIsometrico({
         const slabGeom = new THREE.BoxGeometry(8, 0.15, 8);
         const slabMat = new THREE.MeshStandardMaterial({ 
           color: 0xffffff, 
-          roughness: 0.5, 
-          metalness: 0.1 
+          roughness: 0.4, 
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.35,
+          depthWrite: true
         });
         const slab = new THREE.Mesh(slabGeom, slabMat);
         slab.name = `concrete_slab_floor_${i}`;
         slab.position.set(0, floorBaseY, 0);
+        slab.userData = { system: "estructura", floorIndex: i };
         model.add(slab);
         
         // 2. Ceiling slab
         const ceilGeom = new THREE.BoxGeometry(8, 0.1, 8);
         const ceilMat = new THREE.MeshStandardMaterial({ 
           color: 0xffffff, 
-          roughness: 0.5, 
-          metalness: 0.1 
+          roughness: 0.4, 
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.35,
+          depthWrite: true
         });
         const ceil = new THREE.Mesh(ceilGeom, ceilMat);
         ceil.name = `concrete_ceil_floor_${i}`;
         ceil.position.set(0, floorBaseY + 1.9, 0);
+        ceil.userData = { system: "estructura", floorIndex: i };
         model.add(ceil);
         
-        // 3. Glass central walls (curtain wall)
+        // 3. Glass central walls (curtain wall) - Pure translucent architectural glass
         const glassGeom = new THREE.BoxGeometry(7.2, 1.8, 7.2);
         const glassMat = new THREE.MeshStandardMaterial({ 
-          color: 0x38bdf8, 
+          color: 0xffffff, 
           transparent: true, 
-          opacity: 0.25, 
+          opacity: 0.15, 
           roughness: 0.1, 
-          metalness: 0.9 
+          metalness: 0.9,
+          depthWrite: false
         });
         const glass = new THREE.Mesh(glassGeom, glassMat);
         glass.name = `glass_window_floor_${i}`;
         glass.position.set(0, floorBaseY + 0.95, 0);
+        glass.userData = { system: "estructura", floorIndex: i };
         model.add(glass);
         
         // 4. Corner Structural Columns
         const colGeom = new THREE.BoxGeometry(0.35, 1.8, 0.35);
         const colMat = new THREE.MeshStandardMaterial({ 
           color: 0xffffff, 
-          roughness: 0.7 
+          roughness: 0.5,
+          transparent: true,
+          opacity: 0.5
         });
         const columnsPos = [ [-3.7, -3.7], [3.7, -3.7], [-3.7, 3.7], [3.7, 3.7] ];
         columnsPos.forEach(([cx, cz], colIdx) => {
           const col = new THREE.Mesh(colGeom, colMat);
           col.name = `structure_column_floor_${i}_${colIdx}`;
           col.position.set(cx, floorBaseY + 0.95, cz);
+          col.userData = { system: "estructura", floorIndex: i };
           model.add(col);
         });
         
-        // 5. Elevador Cabin / Shaft (System: elevadores)
-        const liftGeom = new THREE.BoxGeometry(1.6, 1.8, 1.6);
+        // 5. Elevador Cabin / Shaft (System: elevadores) - Distributed in purple vertical bays
+        const liftGeom = new THREE.BoxGeometry(1.4, 1.8, 1.4);
         const liftMat = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff, 
-          roughness: 0.3, 
-          metalness: 0.8 
+          color: 0x8b5cf6, // Vibrant Purple
+          roughness: 0.15, 
+          metalness: 0.85,
+          emissive: 0x8b5cf6,
+          emissiveIntensity: 0.3
         });
-        const lift = new THREE.Mesh(liftGeom, liftMat);
-        lift.name = `elevador_shaft_floor_${i}`;
-        lift.position.set(0, floorBaseY + 0.9, -4.2);
-        model.add(lift);
+        const liftPositions = [ [0, -4.2], [0, 4.2] ];
+        liftPositions.forEach(([lx, lz], liftIdx) => {
+          const lift = new THREE.Mesh(liftGeom, liftMat);
+          lift.name = `elevador_shaft_floor_${i}_${liftIdx}`;
+          lift.position.set(lx, floorBaseY + 0.9, lz);
+          lift.userData = { system: "elevadores", floorIndex: i };
+          model.add(lift);
+        });
         
-        // 6. Water System (System: agua)
-        const waterGeom = new THREE.CylinderGeometry(0.4, 0.4, 1.0, 12);
+        // 6. Water System (System: agua) - Blue/cyan vertical line units and nodes
+        const waterGeom = new THREE.CylinderGeometry(0.3, 0.3, 1.0, 12);
         const waterMat = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff, 
-          roughness: 0.2, 
-          metalness: 0.7 
+          color: 0x06b6d4, // Vibrant Blue/Cyan
+          roughness: 0.1, 
+          metalness: 0.3,
+          emissive: 0x06b6d4,
+          emissiveIntensity: 0.3
         });
-        const waterUnit = new THREE.Mesh(waterGeom, waterMat);
-        waterUnit.name = `water_pump_floor_${i}`;
-        waterUnit.position.set(-2.0, floorBaseY + 0.5, 2.0);
-        model.add(waterUnit);
+        const waterPositions = [ [-2.5, 2.5], [-2.5, -2.5], [-3.5, 0] ];
+        waterPositions.forEach(([wx, wz], waterIdx) => {
+          const waterUnit = new THREE.Mesh(waterGeom, waterMat);
+          waterUnit.name = `water_pump_floor_${i}_${waterIdx}`;
+          waterUnit.position.set(wx, floorBaseY + 0.5, wz);
+          waterUnit.userData = { system: "agua", floorIndex: i };
+          model.add(waterUnit);
+        });
         
-        // 7. Electrical transformer/power box (System: energia)
-        const powerGeom = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+        // 7. Electrical transformer/power box (System: energia) - Orange electrical panels
+        const powerGeom = new THREE.BoxGeometry(0.5, 0.6, 0.5);
         const powerMat = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff, 
-          roughness: 0.4, 
-          metalness: 0.8 
+          color: 0xf97316, // Vibrant Orange
+          roughness: 0.25, 
+          metalness: 0.7,
+          emissive: 0xf97316,
+          emissiveIntensity: 0.3
         });
-        const powerUnit = new THREE.Mesh(powerGeom, powerMat);
-        powerUnit.name = `power_subest_floor_${i}`;
-        powerUnit.position.set(2.0, floorBaseY + 0.3, 2.0);
-        model.add(powerUnit);
+        const powerPositions = [ [2.5, 2.5], [2.5, -2.5], [3.5, 0] ];
+        powerPositions.forEach(([px, pz], powerIdx) => {
+          const powerUnit = new THREE.Mesh(powerGeom, powerMat);
+          powerUnit.name = `power_subest_floor_${i}_${powerIdx}`;
+          powerUnit.position.set(px, floorBaseY + 0.3, pz);
+          powerUnit.userData = { system: "energia", floorIndex: i };
+          model.add(powerUnit);
+        });
         
-        // 8. HVAC Unit / Ducts (System: hvac)
-        const hvacGeom = new THREE.BoxGeometry(1.0, 0.5, 1.0);
+        // 8. HVAC Unit / Ducts (System: hvac) - Symmetrical red-orange ventilation ducts
+        const hvacGeom = new THREE.BoxGeometry(0.8, 0.4, 0.8);
         const hvacMat = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff, 
-          roughness: 0.5, 
-          metalness: 0.6 
+          color: 0xef4444, // Vibrant Red-Orange
+          roughness: 0.2, 
+          metalness: 0.6,
+          emissive: 0xef4444,
+          emissiveIntensity: 0.3
         });
-        const hvacUnit = new THREE.Mesh(hvacGeom, hvacMat);
-        hvacUnit.name = `hvac_duct_floor_${i}`;
-        hvacUnit.position.set(2.0, floorBaseY + 0.25, -2.0);
-        model.add(hvacUnit);
+        const hvacPositions = [ [2.5, -2.5], [-2.5, 2.5], [0, 3.5] ];
+        hvacPositions.forEach(([hx, hz], hvacIdx) => {
+          const hvacUnit = new THREE.Mesh(hvacGeom, hvacMat);
+          hvacUnit.name = `hvac_duct_floor_${i}_${hvacIdx}`;
+          hvacUnit.position.set(hx, floorBaseY + 0.25, hz);
+          hvacUnit.userData = { system: "hvac", floorIndex: i };
+          model.add(hvacUnit);
+        });
         
-        // 9. LED Spotlights (System: iluminacion)
-        const lightGeom = new THREE.SphereGeometry(0.2, 8, 8);
+        // 9. LED Spotlights (System: iluminacion) - Symmetrical warm yellow glowing ceiling points per level
+        const lightGeom = new THREE.SphereGeometry(0.18, 8, 8);
         const lightMat = new THREE.MeshStandardMaterial({ 
-          color: 0xffffff, 
-          emissive: 0x333333, 
-          emissiveIntensity: 0.5 
+          color: 0xfacc15, // Glowing yellow
+          emissive: 0xfacc15, 
+          emissiveIntensity: 0.8 
         });
-        const lightUnit = new THREE.Mesh(lightGeom, lightMat);
-        lightUnit.name = `light_led_floor_${i}`;
-        lightUnit.position.set(-2.0, floorBaseY + 1.4, -2.0);
-        model.add(lightUnit);
+        const lightPositions = [ [-2.0, -2.0], [-2.0, 2.0], [2.0, -2.0], [2.0, 2.0] ];
+        lightPositions.forEach(([lx, lz], lightIdx) => {
+          const lightUnit = new THREE.Mesh(lightGeom, lightMat);
+          lightUnit.name = `light_led_floor_${i}_${lightIdx}`;
+          lightUnit.position.set(lx, floorBaseY + 1.8, lz);
+          lightUnit.userData = { system: "iluminacion", floorIndex: i };
+          model.add(lightUnit);
+        });
       }
       
       return model;
     };
 
     loader.load(
-      "/Meshy_AI_Vertical_Campus_Cross_30MB_final_valid.glb?v=12556508",
+      "/Meshy_AI_Vertical_Campus_Cross_30MB_final_valid.glb?v=26111472",
       (gltf) => {
         setIsProcedural(false);
         setupModelInScene(gltf.scene, false);
@@ -1090,7 +1453,10 @@ export default function EdificioIsometrico({
         let clickedFloorIndex = clickedObj.userData.floorIndex;
         
         if (clickedFloorIndex === undefined) {
-          const hitPoint = intersects[0].point;
+          const hitPoint = intersects[0].point.clone();
+          if (buildingRootRef.current) {
+            buildingRootRef.current.worldToLocal(hitPoint);
+          }
           const bbox = boundingBoxRef.current;
           const normY = (hitPoint.y - bbox.min.y) / (bbox.max.y - bbox.min.y || 1);
           clickedFloorIndex = Math.min(9, Math.max(0, Math.floor(normY * 10)));
@@ -1103,6 +1469,86 @@ export default function EdificioIsometrico({
     };
 
     canvasRef.current.addEventListener("click", onCanvasClick);
+
+    const getIotReading = (system: string, floorIndex: number) => {
+      switch(system) {
+        case "iluminacion":
+          const lux = 300 + (floorIndex * 25) + Math.round(Math.sin(floorIndex) * 30);
+          return `Luminancia: ${lux} lux | Estado: Activo`;
+        case "agua":
+          const pressure = (3.2 - (floorIndex * 0.15) + Math.sin(floorIndex) * 0.1).toFixed(1);
+          return `Presión: ${pressure} bar | Flujo: 4.5 L/s`;
+        case "energia":
+          const kwh = 12 + (floorIndex * 1.5) + Math.round(Math.sin(floorIndex) * 2);
+          return `Consumo: ${kwh} kW/h | Fase: Balanceada`;
+        case "hvac":
+          const temp = (20 + (floorIndex * 0.3) + Math.sin(floorIndex) * 0.5).toFixed(1);
+          return `Temperatura: ${temp}°C | Humedad: 48%`;
+        case "elevadores":
+          const height = (floorIndex * 3.5).toFixed(1);
+          return `Altura: ${height}m | Cabina: Operando`;
+        default:
+          return "Monitoreando...";
+      }
+    };
+
+    onCanvasMouseMove = (event: MouseEvent) => {
+      if (!canvasRef.current || !cameraRef.current || !modelRef.current || !containerRef.current) return;
+
+      const rect = canvasRef.current.getBoundingClientRect();
+      const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), cameraRef.current);
+      const intersects = raycaster.intersectObjects(modelRef.current.children, true);
+
+      if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        const meshFloorIndex = obj.userData.floorIndex;
+        const meshSystem = obj.userData.system;
+
+        const isIotSystem = ["iluminacion", "agua", "energia", "hvac", "elevadores"].includes(meshSystem);
+
+        if (meshFloorIndex !== undefined && meshSystem !== undefined && isIotSystem) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const x = event.clientX - containerRect.left;
+          const y = event.clientY - containerRect.top;
+
+          // Determine status from worst status
+          const floorStatus = floorStatuses[meshFloorIndex]?.worstStatus || "al_dia";
+          let elementStatus: "Óptimo" | "Atención" | "Crítico" = "Óptimo";
+          if (floorStatus === "critico") {
+            elementStatus = "Crítico";
+          } else if (floorStatus === "atencion") {
+            elementStatus = "Atención";
+          }
+
+          const systemNames: { [key: string]: string } = {
+            iluminacion: "Luminaria / Sensor Inteligente",
+            agua: "Red de Distribución / Tubería",
+            energia: "Tablero de Fuerza / Conector",
+            hvac: "Ducto de Climatización / HVAC",
+            elevadores: "Cabina / Guía Vertical"
+          };
+
+          setHoveredIot({
+            system: meshSystem,
+            floor: meshFloorIndex,
+            name: systemNames[meshSystem] || "Sensor IoT",
+            status: elementStatus,
+            reading: getIotReading(meshSystem, meshFloorIndex),
+            x,
+            y
+          });
+        } else {
+          setHoveredIot(null);
+        }
+      } else {
+        setHoveredIot(null);
+      }
+    };
+
+    canvasRef.current.addEventListener("mousemove", onCanvasMouseMove);
 
     // 11. Animation Loop
     const animate = () => {
@@ -1176,6 +1622,10 @@ export default function EdificioIsometrico({
       if (canvasRef.current && onCanvasClick) {
         canvasRef.current.removeEventListener("click", onCanvasClick);
       }
+      if (canvasRef.current && onCanvasMouseMove) {
+        canvasRef.current.removeEventListener("mousemove", onCanvasMouseMove);
+      }
+      setHoveredIot(null);
 
       // Dispose materials & geometries
       if (sceneRef.current) {
@@ -1336,6 +1786,36 @@ export default function EdificioIsometrico({
             {/* Real WebGL Canvas */}
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
+            {/* Hover Status Tooltip for IoT Sensors */}
+            {hoveredIot && showIotOverlays && (
+              <div 
+                className="absolute bg-slate-950/95 text-white border border-slate-800 p-3.5 rounded-xl shadow-2xl pointer-events-none text-left z-30 flex flex-col gap-1 w-64 backdrop-blur-md transition-all duration-75"
+                style={{ 
+                  left: hoveredIot.x + 16, 
+                  top: hoveredIot.y - 12,
+                  transform: "translate(0, -50%)"
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#B08D4C]">
+                    Nivel {hoveredIot.floor + 1} · {hoveredIot.system.toUpperCase()}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${
+                    hoveredIot.status === "Crítico" 
+                      ? "bg-red-500/20 text-red-400 border border-red-500/30 shadow-xs" 
+                      : hoveredIot.status === "Atención"
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-xs"
+                        : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-xs"
+                  }`}>
+                    {hoveredIot.status}
+                  </span>
+                </div>
+                <h5 className="text-xs font-extrabold text-slate-100">{hoveredIot.name}</h5>
+                <div className="h-px bg-slate-800/65 my-1" />
+                <p className="text-[10px] text-slate-300 font-mono leading-relaxed">{hoveredIot.reading}</p>
+              </div>
+            )}
+
             {/* 3D Loading Progress Overlay */}
             <AnimatePresence>
               {isLoading && (
@@ -1415,8 +1895,22 @@ export default function EdificioIsometrico({
                 </div>
               </div>
 
-              {/* Ghost mode check redesigned as a premium glass pill toggle */}
-              <div className="shrink-0">
+              {/* Premium Control Toggles */}
+              <div className="shrink-0 flex flex-wrap items-center gap-2">
+                {/* Capas IoT Switch */}
+                <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 hover:bg-slate-900 border border-slate-800/60 rounded-xl cursor-pointer select-none transition-all">
+                  <input 
+                    type="checkbox"
+                    checked={showIotOverlays}
+                    onChange={(e) => setShowIotOverlays(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-950 text-[#B08D4C] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer accent-[#B08D4C]"
+                  />
+                  <span className="text-[10px] font-extrabold text-slate-300 tracking-wide">
+                    Capas IoT Activas
+                  </span>
+                </label>
+
+                {/* Ghost mode check redesigned as a premium glass pill toggle */}
                 <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 hover:bg-slate-900 border border-slate-800/60 rounded-xl cursor-pointer select-none transition-all">
                   <input 
                     type="checkbox"
@@ -1435,11 +1929,11 @@ export default function EdificioIsometrico({
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
               {[
                 { id: "todos", label: "Todos", icon: <Layers size={12} />, color: "border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white" },
-                { id: "iluminacion", label: "Iluminación", icon: <Sun size={12} />, color: "border-yellow-900/30 text-yellow-500 hover:bg-yellow-950/20 hover:text-yellow-400", activeBg: "bg-yellow-500/20 text-yellow-300 border-yellow-500/60 shadow-sm shadow-yellow-500/10" },
-                { id: "agua", label: "Agua", icon: <Droplet size={12} />, color: "border-cyan-900/30 text-cyan-500 hover:bg-cyan-950/20 hover:text-cyan-400", activeBg: "bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-sm shadow-cyan-500/10" },
-                { id: "energia", label: "Energía", icon: <Zap size={12} />, color: "border-amber-900/30 text-amber-500 hover:bg-amber-950/20 hover:text-amber-400", activeBg: "bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-sm shadow-amber-500/10" },
-                { id: "hvac", label: "Climas / HVAC", icon: <RefreshCw size={12} />, color: "border-orange-900/30 text-orange-500 hover:bg-orange-950/20 hover:text-orange-400", activeBg: "bg-orange-500/20 text-orange-300 border-orange-500/60 shadow-sm shadow-orange-500/10" },
-                { id: "elevadores", label: "Elevadores", icon: <Activity size={12} />, color: "border-purple-900/30 text-purple-500 hover:bg-purple-950/20 hover:text-purple-400", activeBg: "bg-purple-500/20 text-purple-300 border-purple-500/60 shadow-sm shadow-purple-500/10" },
+                { id: "iluminacion", label: "Iluminación", icon: <Sun size={12} />, color: "border-yellow-950/40 text-yellow-500 hover:bg-yellow-950/20 hover:text-yellow-400", activeBg: "bg-yellow-500/20 text-yellow-300 border-yellow-500/60 shadow-sm shadow-yellow-500/10" },
+                { id: "agua", label: "Agua", icon: <Droplet size={12} />, color: "border-cyan-950/40 text-cyan-400 hover:bg-cyan-950/20 hover:text-cyan-300", activeBg: "bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-sm shadow-cyan-500/10" },
+                { id: "energia", label: "Energía", icon: <Zap size={12} />, color: "border-orange-950/40 text-orange-400 hover:bg-orange-950/20 hover:text-orange-300", activeBg: "bg-orange-500/20 text-orange-300 border-orange-500/60 shadow-sm shadow-orange-500/10" },
+                { id: "hvac", label: "Climas / HVAC", icon: <RefreshCw size={12} />, color: "border-red-950/40 text-red-400 hover:bg-red-950/20 hover:text-red-300", activeBg: "bg-red-500/20 text-red-300 border-red-500/60 shadow-sm shadow-red-500/10" },
+                { id: "elevadores", label: "Elevadores", icon: <Activity size={12} />, color: "border-purple-950/40 text-purple-400 hover:bg-purple-950/20 hover:text-purple-300", activeBg: "bg-purple-500/20 text-purple-300 border-purple-500/60 shadow-sm shadow-purple-500/10" },
                 { id: "ninguno", label: "Apagar", icon: <EyeOff size={12} />, color: "border-slate-850 text-slate-400 hover:bg-slate-900 hover:text-slate-300", activeBg: "bg-[#0f172a] text-slate-300 border-slate-700" }
               ].map((sys) => {
                 const isActive = activeSystemFilter === sys.id;
