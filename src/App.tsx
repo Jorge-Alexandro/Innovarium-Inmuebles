@@ -298,6 +298,42 @@ export default function App() {
       {/* MOBILE DRAWER OPTIONS */}
       {mobileMenuOpen && (
         <div className="bg-white border-b border-slate-200 p-4 md:hidden space-y-1.5 animate-slide-down sticky top-[53px] z-30 shadow-md">
+          {/* Selector de Escenarios Móvil */}
+          <div className="grid grid-cols-2 gap-2 pb-2.5 mb-2 border-b border-slate-100">
+            <button
+              onClick={() => {
+                handleSwitchScenario("A");
+                setTab("panel");
+                setMobileMenuOpen(false);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              aria-pressed={currentScenario === "A"}
+              className={`h-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-xs font-bold border transition-all text-center px-1 ${
+                currentScenario === "A"
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              Escenario A · Casa Club
+            </button>
+            <button
+              onClick={() => {
+                handleSwitchScenario("B");
+                setTab("panel");
+                setMobileMenuOpen(false);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              aria-pressed={currentScenario === "B"}
+              className={`h-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-xs font-bold border transition-all text-center px-1 ${
+                currentScenario === "B"
+                  ? "bg-[#0A1B3D] text-white border-[#0A1B3D] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              Escenario B · Torre 3D
+            </button>
+          </div>
+
           {[
             { id: "panel", label: "Panel General", icon: LayoutDashboard },
             { id: "areas", label: "Catálogo de Áreas", icon: Boxes },

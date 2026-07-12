@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Download
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
 import { jsPDF } from "jspdf";
 
 interface DashboardProps {
@@ -840,6 +840,176 @@ export default function Dashboard({
 
         </div>
       )}
+
+      {/* ANÁLISIS DE CONTROL Y PRESUPUESTO */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in mb-6">
+        {/* GRÁFICO DE BARRAS: ESTADO DE LAS TAREAS */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-[#2B2B2B] text-base flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-brand-green" /> Distribución de Tareas por Estado
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-6 font-medium">
+              Mapeo interactivo del volumen de tareas preventivas según su nivel de prioridad y cumplimiento.
+            </p>
+            
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: "Completadas", cantidad: completadas, color: "#059669" },
+                    { name: "En Curso", cantidad: porVencer, color: BRAND.colors.amber },
+                    { name: "Vencidas", cantidad: vencidas, color: BRAND.colors.red },
+                  ]}
+                  margin={{ top: 10, right: 15, left: -20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#94A3B8" 
+                    fontSize={11} 
+                    tickLine={false} 
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="#94A3B8" 
+                    fontSize={11} 
+                    tickLine={false} 
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#F8FAFC' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-md text-xs space-y-1">
+                            <p className="font-extrabold text-slate-800">{data.name}</p>
+                            <p className="text-slate-500 flex items-center gap-2">
+                              <span>📋 Cantidad:</span>
+                              <span className="font-bold text-slate-800">{data.cantidad} tareas</span>
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="cantidad" radius={[4, 4, 0, 0]} barSize={40}>
+                    {[
+                      { name: "Completadas", cantidad: completadas, color: "#059669" },
+                      { name: "En Curso", cantidad: porVencer, color: BRAND.colors.amber },
+                      { name: "Vencidas", cantidad: vencidas, color: BRAND.colors.red },
+                    ].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* GRÁFICO DE LÍNEAS: PRESUPUESTO PROYECTADO VS REAL */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-[#2B2B2B] text-base flex items-center gap-2">
+                <Wallet size={18} className="text-brand-green" /> Distribución de Presupuesto por Área
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-6 font-medium">
+              Análisis comparativo entre el presupuesto asignado anualmente frente al monto total ejecutado en el mantenimiento.
+            </p>
+            
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={areas.map(area => {
+                    const p = presupuestos.find(pr => pr.area_id === area.id) || { monto_presupuestado: 0, monto_gastado: 0 };
+                    return {
+                      name: area.nombre.length > 12 ? area.nombre.substring(0, 12) + "..." : area.nombre,
+                      fullName: area.nombre,
+                      Proyectado: p.monto_presupuestado,
+                      Real: p.monto_gastado
+                    };
+                  })}
+                  margin={{ top: 10, right: 15, left: -10, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#94A3B8" 
+                    fontSize={9} 
+                    tickLine={false} 
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="#94A3B8" 
+                    fontSize={11} 
+                    tickLine={false} 
+                    axisLine={false}
+                    tickFormatter={(val) => {
+                      if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+                      if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+                      return `$${val}`;
+                    }}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-md text-xs space-y-1">
+                            <p className="font-extrabold text-slate-800">{data.fullName}</p>
+                            <p className="text-slate-500 flex items-center justify-between gap-4">
+                              <span>📉 Proyectado:</span>
+                              <span className="font-bold text-slate-800">{formatCurrency(data.Proyectado)}</span>
+                            </p>
+                            <p className="text-slate-500 flex items-center justify-between gap-4">
+                              <span>📈 Real/Gastado:</span>
+                              <span className="font-bold text-brand-green-dark">{formatCurrency(data.Real)}</span>
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend 
+                    verticalAlign="top" 
+                    height={36} 
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: '11px', color: '#64748B' }}
+                  />
+                  <Line 
+                    name="Proyectado"
+                    type="monotone" 
+                    dataKey="Proyectado" 
+                    stroke="#0A1B3D" 
+                    strokeWidth={2} 
+                    activeDot={{ r: 6 }} 
+                    dot={{ r: 3, strokeWidth: 1, fill: "#FFF" }}
+                  />
+                  <Line 
+                    name="Real"
+                    type="monotone" 
+                    dataKey="Real" 
+                    stroke="#C5A059" 
+                    strokeWidth={2.5} 
+                    activeDot={{ r: 7 }} 
+                    dot={{ r: 4, strokeWidth: 1.5, fill: "#FFF" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* GRÁFICO HISTÓRICO DE EJECUCIÓN MENSUAL */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
