@@ -289,7 +289,7 @@ export default function EdificioIsometrico({
 
   // Active Systems & Occupancy glowing state
   const [activeSystemFilter, setActiveSystemFilter] = useState<string>("todos");
-  const [systemGhostMode, setSystemGhostMode] = useState<boolean>(true);
+  const [systemGhostMode, setSystemGhostMode] = useState<boolean>(false);
   const [showIotOverlays, setShowIotOverlays] = useState<boolean>(true);
   
   interface HoveredIotElement {
@@ -451,15 +451,25 @@ export default function EdificioIsometrico({
 
     controlsRef.current.target.copy(center);
 
+    const isMobileDevice = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768;
+    const cameraDistanceMultiplier = isMobileDevice ? 1.75 : 1.1;
+    const cameraHeightMultiplier = isMobileDevice ? 1.15 : 0.8;
+    const cameraTopMultiplier = isMobileDevice ? 2.5 : 1.8;
+    const cameraFrontMultiplier = isMobileDevice ? 2.2 : 1.5;
+
     switch (type) {
       case "iso":
-        cameraRef.current.position.set(center.x + maxDim * 1.1, center.y + maxDim * 0.8, center.z + maxDim * 1.1);
+        cameraRef.current.position.set(
+          center.x + maxDim * cameraDistanceMultiplier, 
+          center.y + maxDim * cameraHeightMultiplier, 
+          center.z + maxDim * cameraDistanceMultiplier
+        );
         break;
       case "top":
-        cameraRef.current.position.set(center.x, center.y + maxDim * 1.8, center.z);
+        cameraRef.current.position.set(center.x, center.y + maxDim * cameraTopMultiplier, center.z);
         break;
       case "front":
-        cameraRef.current.position.set(center.x, center.y + maxDim * 0.2, center.z + maxDim * 1.5);
+        cameraRef.current.position.set(center.x, center.y + maxDim * 0.2, center.z + maxDim * cameraFrontMultiplier);
         break;
     }
     controlsRef.current.update();
@@ -745,39 +755,6 @@ export default function EdificioIsometrico({
 
     const setupModelInScene = (model: THREE.Group, isThisProcedural: boolean) => {
       try {
-        // If a real model is loaded, we split it into separate floor and system components!
-        if (!isThisProcedural) {
-          try {
-            let singleMesh: THREE.Mesh | null = null;
-            model.traverse((child) => {
-              if (child instanceof THREE.Mesh && !singleMesh) {
-                if (child.geometry && child.geometry.attributes && child.geometry.attributes.position) {
-                  singleMesh = child;
-                }
-              }
-            });
-
-            if (singleMesh) {
-              const tempBBox = new THREE.Box3().setFromObject(model);
-              const tempSize = new THREE.Vector3();
-              tempBBox.getSize(tempSize);
-
-              const splitGroup = splitSingleMeshIntoFloorSystems(singleMesh, tempBBox, tempSize);
-              
-              // Remove original combined mesh from its parent
-              if (singleMesh.parent) {
-                singleMesh.parent.remove(singleMesh);
-              } else {
-                model.remove(singleMesh);
-              }
-
-              model.add(splitGroup);
-            }
-          } catch (splitErr) {
-            console.error("Failed to split mesh into floors/systems, proceeding with original model:", splitErr);
-          }
-        }
-
         // 1. Crea un único grupo raíz campusRoot, architectureRoot e iotRoot:
         const campusRoot = new THREE.Group();
         campusRoot.name = "campusRoot";
@@ -1200,10 +1177,13 @@ export default function EdificioIsometrico({
         
         controls.target.copy(rootCenter);
         const maxDim = Math.max(rootSize.x, rootSize.y, rootSize.z);
+        const isMobileDevice = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768;
+        const cameraDistanceMultiplier = isMobileDevice ? 1.75 : 1.1;
+        const cameraHeightMultiplier = isMobileDevice ? 1.15 : 0.8;
         camera.position.set(
-          rootCenter.x + maxDim * 1.1,
-          rootCenter.y + maxDim * 0.8,
-          rootCenter.z + maxDim * 1.1
+          rootCenter.x + maxDim * cameraDistanceMultiplier,
+          rootCenter.y + maxDim * cameraHeightMultiplier,
+          rootCenter.z + maxDim * cameraDistanceMultiplier
         );
         controls.update();
 
@@ -1385,31 +1365,90 @@ export default function EdificioIsometrico({
       return model;
     };
 
-    loader.load(
-      "/Meshy_AI_Vertical_Campus_Cross_30MB_final_valid.glb?v=26111472",
-      (gltf) => {
-        setIsProcedural(false);
-        setupModelInScene(gltf.scene, false);
-        dracoLoader.dispose();
-      },
-      (xhr) => {
-        if (xhr.total > 0) {
-          setLoadingProgress(Math.round((xhr.loaded / xhr.total) * 100));
-        } else {
-          // Fallback if content length is unknown
-          setLoadingProgress(prev => Math.min(prev + 10, 95));
-        }
-      },
-      (error) => {
-        console.warn("No se pudo cargar el modelo GLTF original. Iniciando estructura procedimental 3D interactiva de respaldo:", error);
-        setIsProcedural(true);
+    const MODEL_URL = "/Meshy_AI_Vertical_Campus_Cross_30MB_final_valid.glb?v=12556508";
+
+    const loadAndSetupModel = async () => {
+      if (isProcedural) {
+        console.log("Loading interactive procedural model.");
         const proceduralModel = buildProceduralBuilding();
         setupModelInScene(proceduralModel, true);
         setLoadError(null);
         setIsLoading(false);
         dracoLoader.dispose();
+      } else {
+        try {
+          setIsLoading(true);
+          setLoadError(null);
+          setLoadingProgress(10);
+
+          const response = await fetch(MODEL_URL);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} (${response.statusText || 'No se pudo obtener el archivo'})`);
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          const length = arrayBuffer.byteLength;
+
+          if (length !== 12556508) {
+            let extraInfo = "";
+            if (length < 1000) {
+              try {
+                const txt = new TextDecoder().decode(arrayBuffer);
+                if (txt.includes("<!DOCTYPE html>") || txt.includes("<html")) {
+                  extraInfo = " (Se recibió una página HTML de error/redirección)";
+                }
+              } catch (e) {}
+            }
+            throw new Error(`Tamaño incorrecto. Se esperaban 12556508 bytes pero se recibieron ${length} bytes${extraInfo}`);
+          }
+
+          if (length >= 4) {
+            const view = new DataView(arrayBuffer);
+            const char1 = String.fromCharCode(view.getUint8(0));
+            const char2 = String.fromCharCode(view.getUint8(1));
+            const char3 = String.fromCharCode(view.getUint8(2));
+            const char4 = String.fromCharCode(view.getUint8(3));
+            const header = `${char1}${char2}${char3}${char4}`;
+            if (header !== "glTF") {
+              throw new Error(`Cabecera de archivo "${header}" inválida (se esperaba "glTF")`);
+            }
+          } else {
+            throw new Error(`Archivo corrupto o vacío`);
+          }
+
+          setLoadingProgress(60);
+          const blob = new Blob([arrayBuffer]);
+          const blobUrl = URL.createObjectURL(blob);
+
+          loader.load(
+            blobUrl,
+            (gltf) => {
+              setIsProcedural(false);
+              setupModelInScene(gltf.scene, false);
+              setLoadingProgress(100);
+              URL.revokeObjectURL(blobUrl);
+              dracoLoader.dispose();
+            },
+            (xhr) => {
+              setLoadingProgress(95);
+            },
+            (error: any) => {
+              URL.revokeObjectURL(blobUrl);
+              dracoLoader.dispose();
+              setLoadError(`ERROR AL CARGAR GLB: Fallo al parsear/decodificar el archivo GLB. Detalle: ${error?.message || error}`);
+              setIsLoading(false);
+            }
+          );
+        } catch (err: any) {
+          console.error("Failed to load and validate GLB model:", err);
+          setLoadError(`ERROR AL CARGAR GLB: ${err?.message || err}`);
+          setIsLoading(false);
+          dracoLoader.dispose();
+        }
       }
-    );
+    };
+
+    loadAndSetupModel();
 
     // 9. Resize Observer for proper dimensions (Avoids fixed window size reliance)
     const handleResize = () => {
@@ -1645,7 +1684,7 @@ export default function EdificioIsometrico({
         rendererRef.current.dispose();
       }
     };
-  }, []);
+  }, [isProcedural]);
 
   // Update background when dark mode shifts
   useEffect(() => {
@@ -1719,6 +1758,18 @@ export default function EdificioIsometrico({
               >
                 Frontal
               </button>
+              <div className="w-px h-3.5 bg-slate-800 self-center mx-1" />
+              <button 
+                onClick={() => setIsProcedural(!isProcedural)}
+                title={isProcedural ? "Cargar modelo original de alta fidelidad GLB" : "Activar modelo procedimental ultraligero de alto rendimiento"}
+                className={`p-1.5 text-[10px] font-extrabold rounded transition-all duration-150 ${
+                  isProcedural 
+                    ? "bg-[#B08D4C] text-white" 
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {isProcedural ? "Modelo Real" : "Usar modelo ligero"}
+              </button>
             </div>
 
             {/* Render Styles Toolbar */}
@@ -1781,7 +1832,7 @@ export default function EdificioIsometrico({
           {/* Canvas Wrapper */}
           <div 
             ref={containerRef} 
-            className="w-full h-[480px] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
+            className="w-full h-[340px] sm:h-[480px] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
           >
             {/* Real WebGL Canvas */}
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
@@ -1852,26 +1903,34 @@ export default function EdificioIsometrico({
 
             {/* Loading error message fallback */}
             {loadError && (
-              <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-20">
+              <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
                 <AlertTriangle className="text-red-500 mb-3" size={36} />
                 <h4 className="text-sm font-extrabold text-white">Error de Carga 3D</h4>
-                <p className="text-xs text-red-300 mt-2 max-w-sm">
+                <p className="text-xs text-red-300 mt-2 max-w-sm whitespace-pre-wrap break-all font-mono bg-slate-900 p-2.5 rounded-lg border border-slate-800">
                   {loadError}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-4 italic max-w-xs">
-                  Mientras se valida el archivo, hemos montado el panel de control lateral interactivo para coordinar el mantenimiento.
+                  Mientras se valida el archivo, puedes alternar al modelo ligero interactivo o revisar el panel de control.
                 </p>
+                <button
+                  onClick={() => {
+                    setIsProcedural(true);
+                  }}
+                  className="mt-5 px-4 py-2 bg-slate-800 hover:bg-[#B08D4C] text-white border border-slate-700 hover:border-[#B08D4C] rounded-lg text-xs font-black cursor-pointer select-none transition-all pointer-events-auto shadow-md"
+                >
+                  Usar modelo ligero
+                </button>
               </div>
             )}
 
             {/* User-friendly procedural banner */}
             {isProcedural && (
-              <div className="absolute bottom-16 left-3 right-3 z-10 bg-slate-950/90 border border-slate-800 text-slate-300 p-3 rounded-xl backdrop-blur-md shadow-lg flex items-center gap-3 pointer-events-auto">
+              <div className="absolute bottom-16 left-3 right-3 z-10 bg-slate-950/95 border border-slate-800 text-slate-300 p-3 rounded-xl backdrop-blur-md shadow-lg flex items-center gap-3 pointer-events-auto">
                 <Info size={16} className="text-[#B08D4C] shrink-0 animate-pulse" />
                 <div className="text-left leading-tight">
-                  <span className="text-[10px] font-black uppercase tracking-wider block text-white">Modelo de Respaldo Interactivo Activo</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider block text-white">Modelo de Alto Rendimiento Activo</span>
                   <p className="text-[9px] text-slate-400 mt-0.5">
-                    Para activar el render de alta fidelidad, sube <strong className="font-mono text-slate-300">Meshy_AI_Vertical_Campus_Cross_30MB_final_valid.glb</strong> a la carpeta <strong className="font-mono text-slate-300">public</strong>.
+                    Este modelo interactivo ultraligero está optimizado para garantizar una navegación totalmente fluida y sin interrupciones en dispositivos móviles.
                   </p>
                 </div>
               </div>
